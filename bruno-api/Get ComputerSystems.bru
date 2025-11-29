@@ -1,0 +1,16 @@
+meta {
+  name: Get ComputerSystems
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://localhost:8080/api/v1/computer-systems
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

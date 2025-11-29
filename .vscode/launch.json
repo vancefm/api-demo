@@ -1,0 +1,28 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Spring Boot App",
+            "type": "java",
+            "name": "Spring Boot App",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.demo.ApiDemoApplication",
+            "projectName": "api-demo",
+            "preLaunchTask": "mvn: clean package -DskipTests=true",
+            "args": "",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Run Tests",
+            "type": "java",
+            "name": "Run Tests",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "",
+            "projectName": "api-demo",
+            "preLaunchTask": "mvn: test",
+            "console": "integratedTerminal"
+        }
+    ]
+}

@@ -1,0 +1,246 @@
+# ============================================================================
+# APPLICATION CONFIGURATION
+# ============================================================================
+app:
+  name: Computer Systems API
+  # Environment can be overridden via environment variable: APP_ENVIRONMENT
+  environment: ${APP_ENVIRONMENT:development}
+  admin:
+    # Admin email address - can be overridden via environment variable
+    email: ${ADMIN_EMAIL:admin@example.com}
+
+  # ========================================================================
+  # BATCH OPERATIONS CONFIGURATION
+  # ========================================================================
+  batch:
+    # Maximum number of items allowed in a single batch operation
+    # Prevents DOS attacks by limiting batch size
+    # Recommended values:
+    #   - Small/memory-constrained environments: 10-50
+    #   - Typical application: 50-200
+    #   - High-performance/large items: 100-1000
+    max-items: 100
+
+    # Timeout for batch operations in seconds
+    # Maximum time allowed before batch operation is terminated and rolled back
+    # Set based on expected processing time for maximum batch size
+    timeout-seconds: 300
+
+# ============================================================================
+# SPRING FRAMEWORK CONFIGURATION
+# ============================================================================
+spring:
+  application:
+    name: api-demo
+
+  # ========================================================================
+  # DATABASE CONFIGURATION (H2 In-Memory Database)
+  # ========================================================================
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password:  # Empty password for H2
+
+  # H2 Console - Web UI for database inspection
+  # Access at: http://localhost:8080/h2-console
+  h2:
+    console:
+      enabled: true
+
+  # ========================================================================
+  # JPA/HIBERNATE CONFIGURATION
+  # ========================================================================
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      # create-drop: Drop and recreate database on startup (development)
+      # For production, use: validate, update
+      ddl-auto: create-drop
+    show-sql: false  # Set to true for SQL debugging
+    properties:
+      hibernate:
+        # Pretty-print generated SQL
+        format_sql: true
+
+  # ========================================================================
+  # EMAIL/SMTP CONFIGURATION
+  # ========================================================================
+  mail:
+    # Use environment variables for sensitive credentials in production
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:your-email@gmail.com}
+    password: ${MAIL_PASSWORD:your-app-password}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+      mail.smtp.connectiontimeout: 5000  # 5 seconds
+      mail.smtp.timeout: 5000            # 5 seconds
+      mail.smtp.writetimeout: 5000       # 5 seconds
+
+# ============================================================================
+# LOGGING CONFIGURATION
+# ============================================================================
+logging:
+  # Log level configuration by package
+  level:
+    root: INFO                    # Global log level
+    com.demo: DEBUG               # Application code - detailed logs
+    org.springframework.web: INFO  # Spring Web framework
+    org.hibernate.SQL: INFO       # Hibernate SQL execution
+  
+  # Log output formatting
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  
+  # Log file configuration
+  file:
+    name: logs/application.log
+
+# ============================================================================
+# SERVER CONFIGURATION
+# ============================================================================
+server:
+  port: 8080
+
+  # ========================================================================
+  # RESPONSE COMPRESSION CONFIGURATION
+  # ========================================================================
+  # GZIP compression reduces bandwidth for large responses
+  # Typically reduces JSON responses by 70-80%
+  compression:
+    enabled: true                    # Enable GZIP compression
+    min-response-size: 1024          # Only compress responses > 1KB
+    # MIME types to compress
+    mime-types:
+      - application/json             # API responses
+      - application/xml              # XML data
+      - text/html                    # HTML pages
+      - text/xml                     # XML markup
+      - text/plain                   # Plain text
+      - text/css                     # Stylesheets
+      - text/javascript              # JavaScript files
+
+# ============================================================================
+# RESILIENCE4J CONFIGURATION - Rate Limiting
+# ============================================================================
+# Rate limiting protects API from abuse and ensures fair resource usage
+# Token bucket algorithm: refills tokens at each period, requests consume 1 token
+resilience4j:
+  ratelimiter:
+    instances:
+      # Global rate limiter applied to all /api/** endpoints
+      global-api:
+        # Register health indicator for /actuator/health endpoint
+        registerHealthIndicator: true
+        
+        # Token refill period (how often tokens are reset)
+        limitRefreshPeriod: 1m
+        
+        # Maximum requests allowed per refresh period (GLOBAL LIMIT)
+        # All clients combined = 1000 requests/minute
+        limitForPeriod: 1000
+        
+        # Maximum time to wait for available token
+        # If limit exceeded, wait up to 5s for token to become available
+        timeoutDuration: 5s
+        
+        # Buffer size for rate limiter events (success/reject/wait)
+        eventConsumerBufferSize: 100
+        
+        # Allow application to start even if rate limiter health check fails
+        allowHealthIndicatorToFail: false
+
+  # ========================================================================
+  # CIRCUIT BREAKER CONFIGURATION
+  # ========================================================================
+  # Circuit breaker prevents cascading failures when external services fail
+  # States: CLOSED (normal) → OPEN (failing fast) → HALF_OPEN (testing recovery)
+  circuitbreaker:
+    instances:
+      # Circuit breaker for email service (external SMTP service)
+      # Protects against email server timeouts and failures
+      emailService:
+        registerHealthIndicator: true
+        
+        # Number of calls to evaluate before deciding to open circuit
+        minimumNumberOfCalls: 5
+        
+        # Last N calls are evaluated in sliding window
+        slidingWindowSize: 10
+        
+        # If failure rate exceeds this threshold, circuit opens
+        # Example: 50% of last 10 calls failed = open circuit
+        failureRateThreshold: 50
+        
+        # If slow call rate exceeds this threshold, circuit opens
+        # Slow = calls taking longer than slowCallDurationThreshold
+        slowCallRateThreshold: 50
+        
+        # Calls taking longer than this are considered "slow"
+        slowCallDurationThreshold: 2s
+        
+        # How many calls to test in HALF_OPEN state before deciding
+        permittedNumberOfCallsInHalfOpenState: 3
+        
+        # Wait this long in OPEN state before transitioning to HALF_OPEN
+        # Gives external service time to recover
+        waitDurationInOpenState: 30s
+        
+        # Automatically try recovery after wait period
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        
+        # Buffer size for circuit breaker events
+        eventConsumerBufferSize: 100
+        
+        # Allow application to start even if circuit breaker health check fails
+        allowHealthIndicatorToFail: false
+      
+      # Circuit breaker for database queries
+      # Protects against database connection pool exhaustion and slow queries
+      databaseQuery:
+        registerHealthIndicator: true
+        minimumNumberOfCalls: 8
+        slidingWindowSize: 20
+        failureRateThreshold: 60            # 60% failures opens circuit
+        slowCallRateThreshold: 40           # 40% slow calls opens circuit
+        slowCallDurationThreshold: 3s       # Queries >3s are slow
+        permittedNumberOfCallsInHalfOpenState: 5
+        waitDurationInOpenState: 20s        # 20s recovery time for database
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        eventConsumerBufferSize: 100
+        allowHealthIndicatorToFail: false
+
+# ============================================================================
+# SPRING BOOT ACTUATOR CONFIGURATION
+# ============================================================================
+# Actuator exposes operational endpoints for monitoring and observability
+# Essential for production deployments and Kubernetes integration
+management:
+  endpoints:
+    web:
+      # Endpoints exposed over HTTP
+      # /actuator/health         - Application and component health
+      # /actuator/metrics        - All available metrics
+      # /actuator/prometheus     - Prometheus-format metrics
+      exposure:
+        include: health,metrics,prometheus
+  
+  endpoint:
+    health:
+      # Show detailed health info for each component (db, rate limiter, circuit breakers, etc.)
+      show-details: always
+
+# ============================================================================
+# SPRINGDOC/SWAGGER CONFIGURATION
+# ============================================================================
+# Auto-generates OpenAPI documentation and interactive Swagger UI
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+  api-docs:
+    path: /v3/api-docs

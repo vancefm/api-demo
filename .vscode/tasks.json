@@ -1,0 +1,94 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "mvn: clean package -DskipTests=true",
+            "type": "shell",
+            "command": "mvn",
+            "args": [
+                "clean",
+                "package",
+                "-DskipTests=true",
+                "-q"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "mvn: test",
+            "type": "shell",
+            "command": "mvn",
+            "args": [
+                "test"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "mvn: clean compile",
+            "type": "shell",
+            "command": "mvn",
+            "args": [
+                "clean",
+                "compile",
+                "-q"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Run Spring Boot App",
+            "type": "shell",
+            "command": "java",
+            "args": [
+                "-jar",
+                "target/api-demo-1.0.0.jar"
+            ],
+            "group": "test",
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^.*$",
+                    "file": 1,
+                    "location": 2,
+                    "message": 3
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*Started ApiDemoApplication.*",
+                    "endsPattern": ".*Started ApiDemoApplication.*"
+                }
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        }
+    ]
+}
