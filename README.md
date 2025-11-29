@@ -6,7 +6,6 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
   - [Features](#features)
   - [Technologies Used](#technologies-used)
   - [Architecture \& Design](#architecture--design)
-    - [Project Structure](#project-structure)
     - [API Versioning](#api-versioning)
       - [Current Implementation](#current-implementation)
     - [Error Handling](#error-handling)
@@ -131,46 +130,6 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
 - **Maven 3.9.11**: Build tool and dependency management
 
 ## Architecture & Design
-
-### Project Structure
-
-```
-api-demo/
-├── src/
-│   ├── main/
-│   │   ├── java/com/demo/
-│   │   │   ├── ApiDemoApplication.java          # Main application class
-│   │   │   ├── config/
-│   │   │   │   └── OpenApiConfig.java           # Swagger/OpenAPI configuration
-│   │   │   ├── controller/
-│   │   │   │   └── ComputerSystemController.java # REST endpoints
-│   │   │   ├── service/
-│   │   │   │   ├── ComputerSystemService.java    # Service interface
-│   │   │   │   └── impl/
-│   │   │   │       └── ComputerSystemServiceImpl.java # Service implementation
-│   │   │   ├── repository/
-│   │   │   │   └── ComputerSystemRepository.java # Data access layer
-│   │   │   ├── model/
-│   │   │   │   └── ComputerSystem.java           # JPA Entity
-│   │   │   ├── dto/
-│   │   │   │   └── ComputerSystemDto.java        # Data transfer object
-│   │   │   └── exception/
-│   │   │       ├── GlobalExceptionHandler.java   # Exception handling
-│   │   │       ├── ResourceNotFoundException.java
-│   │   │       ├── DuplicateResourceException.java
-│   │   │       └── ErrorResponse.java
-│   │   └── resources/
-│   │       └── application.yml                   # Application configuration
-│   └── test/
-│       └── java/com/demo/
-│           ├── ComputerSystemIntegrationTest.java # Integration tests
-│           ├── service/
-│           │   └── ComputerSystemServiceTest.java # Service layer tests
-│           └── controller/
-│               └── ComputerSystemControllerTest.java # Controller tests
-├── pom.xml                                        # Maven configuration
-└── README.md                                      # This file
-```
 
 ### API Versioning
 
