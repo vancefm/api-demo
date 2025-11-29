@@ -84,11 +84,6 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
       - [Integration with Monitoring Systems](#integration-with-monitoring-systems)
       - [Example Kubernetes Configuration](#example-kubernetes-configuration)
       - [Best Practices](#best-practices-5)
-  - [Recent Updates (November 2025)](#recent-updates-november-2025)
-    - [Global Rate Limiting Implementation](#global-rate-limiting-implementation)
-    - [Response Compression](#response-compression)
-    - [Code Quality Improvements](#code-quality-improvements)
-    - [Documentation](#documentation)
   - [Ideas for future Enhancements](#ideas-for-future-enhancements)
   - [License](#license)
   - [Support](#support)
@@ -1363,33 +1358,6 @@ spec:
 6. **Performance Impact**: Actuator adds minimal overhead; metrics collection is efficient
 
 ---
-
-## Recent Updates (November 2025)
-
-### Global Rate Limiting Implementation
-- ✅ Added Resilience4j dependency (2.1.0)
-- ✅ Implemented GlobalRateLimitInterceptor for API-wide rate limiting
-- ✅ Created WebConfig for interceptor registration
-- ✅ Configured rate limiter with 1000 requests/minute global limit
-- ✅ Added X-Rate-Limit headers to responses
-
-### Response Compression
-- ✅ Enabled GZIP compression with 1KB minimum threshold
-- ✅ Configured compression for JSON, XML, HTML, and text MIME types
-- ✅ Documented performance benefits and best practices
-
-### Code Quality Improvements
-- ✅ Enhanced logging in GlobalRateLimitInterceptor
-- ✅ Added comprehensive Javadoc comments
-- ✅ Implemented client IP extraction with proxy support
-- ✅ Health indicator registration for rate limiter
-
-### Documentation
-- ✅ Cleaned up and reorganized README
-- ✅ Added comprehensive rate limiting configuration guide
-- ✅ Documented extension paths for advanced scenarios
-- ✅ Added compression and versioning strategy sections
-- ✅ Included code examples for all advanced topics
 
 ## Ideas for future Enhancements
 
