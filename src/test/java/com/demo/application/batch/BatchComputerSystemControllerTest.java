@@ -4,7 +4,7 @@ import com.demo.shared.config.BatchProperties;
 import com.demo.domain.batch.BatchComputerSystemRequest;
 import com.demo.domain.computersystem.ComputerSystemDto;
 import com.demo.application.computersystem.ComputerSystemService;
-import com.demo.application.computersystem.EmailNotificationService;
+import com.demo.shared.service.EmailNotificationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

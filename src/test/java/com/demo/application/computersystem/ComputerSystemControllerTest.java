@@ -2,7 +2,7 @@ package com.demo.application.computersystem;
 
 import com.demo.domain.computersystem.ComputerSystemDto;
 import com.demo.application.computersystem.ComputerSystemService;
-import com.demo.application.computersystem.EmailNotificationService;
+import com.demo.shared.service.EmailNotificationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

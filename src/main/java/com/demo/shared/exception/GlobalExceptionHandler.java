@@ -1,6 +1,6 @@
 package com.demo.shared.exception;
 
-import com.demo.application.computersystem.EmailNotificationService;
+import com.demo.shared.service.EmailNotificationService;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;

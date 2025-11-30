@@ -1,4 +1,4 @@
-package com.demo.application.computersystem;
+package com.demo.shared.service;
 
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
