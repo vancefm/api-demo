@@ -29,4 +29,8 @@ public interface ComputerSystemRepository extends JpaRepository<ComputerSystem, 
             @Param("user") String user,
             Pageable pageable
     );
+
+    // In future methods be conscious potential of n+1 problem when using JPA
+    // and fetching related entities. A work around for this would be to use
+    // fetch joins or entity graphs.
 }

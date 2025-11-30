@@ -4,7 +4,6 @@ import com.demo.config.BatchProperties;
 import com.demo.dto.BatchComputerSystemRequest;
 import com.demo.dto.BatchComputerSystemResponse;
 import com.demo.dto.ComputerSystemDto;
-import com.demo.exception.ErrorResponse;
 import com.demo.service.ComputerSystemService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -18,10 +17,12 @@ import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
+import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -174,7 +175,7 @@ public class BatchComputerSystemController {
         logger.info("Batch create started: {} items", batchSize);
 
         // Validate batch size against configured maximum
-        ErrorResponse sizeError = validateBatchSize(batchSize, httpRequest.getRequestURI());
+        ProblemDetail sizeError = validateBatchSize(batchSize, httpRequest.getRequestURI());
         if (sizeError != null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(sizeError);
         }
@@ -264,7 +265,7 @@ public class BatchComputerSystemController {
         logger.info("Batch update started: {} items", batchSize);
 
         // Validate batch size against configured maximum
-        ErrorResponse sizeError = validateBatchSize(batchSize, httpRequest.getRequestURI());
+        ProblemDetail sizeError = validateBatchSize(batchSize, httpRequest.getRequestURI());
         if (sizeError != null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(sizeError);
         }
@@ -354,7 +355,7 @@ public class BatchComputerSystemController {
         logger.info("Batch delete started: {} items", batchSize);
 
         // Validate batch size against configured maximum
-        ErrorResponse sizeError = validateBatchSize(batchSize, httpRequest.getRequestURI());
+        ProblemDetail sizeError = validateBatchSize(batchSize, httpRequest.getRequestURI());
         if (sizeError != null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(sizeError);
         }
@@ -396,14 +397,14 @@ public class BatchComputerSystemController {
     /**
      * Validates batch size against configured maximum.
      *
-     * Returns null if size is valid, or ErrorResponse if size exceeds limit.
+     * Returns null if size is valid, or ProblemDetail if size exceeds limit.
      * This prevents DOS attacks by enforcing configurable batch size limits.
      *
      * @param batchSize Number of items in batch
      * @param uri Request URI for error response
-     * @return ErrorResponse if batch size exceeds limit, null if valid
+     * @return ProblemDetail if batch size exceeds limit, null if valid
      */
-    private ErrorResponse validateBatchSize(int batchSize, String uri) {
+    private ProblemDetail validateBatchSize(int batchSize, String uri) {
         if (batchSize > batchProperties.getMaxItems()) {
             String message = String.format(
                     "Batch size (%d) exceeds maximum (%d) - reduce batch size or increase app.batch.max-items configuration",
@@ -413,13 +414,15 @@ public class BatchComputerSystemController {
             
             logger.warn("Batch size validation failed: {}", message);
             
-            return new ErrorResponse(
-                    HttpStatus.BAD_REQUEST.value(),
-                    "Batch size exceeds maximum",
-                    message,
-                    LocalDateTime.now(),
-                    uri
-            );
+            ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+            problem.setTitle("Batch Size Exceeds Maximum");
+            problem.setDetail(message);
+            problem.setInstance(URI.create(uri));
+            problem.setProperty("timestamp", Instant.now());
+            problem.setProperty("batchSize", batchSize);
+            problem.setProperty("maxItems", batchProperties.getMaxItems());
+            
+            return problem;
         }
         return null;
     }

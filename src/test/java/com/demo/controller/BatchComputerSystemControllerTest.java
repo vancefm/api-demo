@@ -130,7 +130,7 @@ class BatchComputerSystemControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", is("Request validation failed")));
+                .andExpect(jsonPath("$.title", is("Request Validation Failed")));
 
         verify(service, never()).createComputerSystem(any());
     }
@@ -152,8 +152,8 @@ class BatchComputerSystemControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", is("Batch size exceeds maximum")))
-                .andExpect(jsonPath("$.details", containsString("exceeds maximum (1)")));
+                .andExpect(jsonPath("$.title", is("Batch Size Exceeds Maximum")))
+                .andExpect(jsonPath("$.detail", containsString("exceeds maximum (1)")));
 
         verify(service, never()).createComputerSystem(any());
     }
@@ -184,7 +184,7 @@ class BatchComputerSystemControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.details", containsString("items[0].hostname")));
+                .andExpect(jsonPath("$.detail", containsString("items[0].hostname")));
 
         verify(service, never()).createComputerSystem(any());
     }
@@ -235,7 +235,7 @@ class BatchComputerSystemControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", is("Batch size exceeds maximum")));
+                .andExpect(jsonPath("$.title", is("Batch Size Exceeds Maximum")));
 
         // Verify no updates occurred (all-or-nothing: size exceeded = no updates)
         verify(service, never()).updateComputerSystem(any(Long.class), any());
@@ -303,7 +303,7 @@ class BatchComputerSystemControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", is("Batch size exceeds maximum")));
+                .andExpect(jsonPath("$.title", is("Batch Size Exceeds Maximum")));
 
         // Verify no deletions occurred (size exceeded = no deletes)
         verify(service, never()).getComputerSystemById(any());

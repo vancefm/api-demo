@@ -140,22 +140,54 @@ All endpoints use the `/api/v1/` prefix:
 
 ### Error Handling
 
-The API returns structured error responses:
+The API returns structured error responses following **RFC 9457** (Problem Details for HTTP APIs) using Spring Boot's `ProblemDetail`:
 
 ```json
 {
+  "type": "about:blank",
+  "title": "Resource Not Found",
   "status": 404,
-  "message": "Resource Not Found",
-  "details": "Computer system with id 99 not found",
-  "timestamp": "2025-11-27T10:30:00",
-  "path": "/api/v1/computer-systems/99"
+  "detail": "Computer system with id 99 not found",
+  "instance": "/api/v1/computer-systems/99",
+  "timestamp": "2025-11-30T15:30:00Z"
+}
+```
+
+**RFC 9457 Benefits:**
+- **Standardized Format**: Interoperable across all clients and tools
+- **Spring Native**: Uses `ProblemDetail` built into Spring Framework 6.2+
+- **Extensible**: Add custom properties for domain-specific error information
+- **Semantic**: Standard field names (`title`, `detail`, `status`, `instance`) recognized by API clients
+
+**Field Mapping:**
+| RFC 9457 Field | Purpose |
+|---|---|
+| `type` | Problem type URI (usually "about:blank" for general errors) |
+| `title` | Short, human-readable error title |
+| `status` | HTTP status code |
+| `detail` | Extended error description (may include field-level validation details) |
+| `instance` | URI identifying the specific error occurrence (request path) |
+| `timestamp` | ISO 8601 timestamp of error occurrence |
+
+**Validation Errors with Batch Operations:**
+When validation fails, the `detail` field includes item-level error information:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Request Validation Failed",
+  "status": 400,
+  "detail": "items[0].ipAddress: Invalid IP address format; items[1].macAddress: Invalid MAC address format",
+  "instance": "/api/v1/computer-systems/batch/create",
+  "timestamp": "2025-11-30T15:30:00Z"
 }
 ```
 
 #### Error Codes
-- **400**: Validation errors
+- **400**: Validation errors (field-level details in `detail` field)
 - **404**: Resource not found
 - **409**: Duplicate resource
+- **503**: Service temporarily unavailable (circuit breaker open)
 - **500**: Internal server error
 
 ## Getting Started
@@ -1359,6 +1391,21 @@ spec:
 
 ---
 
+## Recent Updates (November 2025)
+
+### RFC 9457 ProblemDetail Migration
+- **Migrated from custom `ErrorResponse` to Spring's `ProblemDetail`** (RFC 9457 standard)
+- Replaced proprietary error format with industry-standard problem details format
+- All error responses now follow RFC 9457 specification with fields: `type`, `title`, `status`, `detail`, `instance`, `timestamp`
+- Benefits:
+  - Interoperable with standard API clients and tools
+  - Built into Spring Framework 6.2+ (no custom code needed)
+  - Extensible with custom properties for domain-specific errors
+  - Standards-based approach (recognized by Postman, REST clients, etc.)
+- Updated `GlobalExceptionHandler` to return `ProblemDetail` responses
+- Updated batch validation to return `ProblemDetail` with enhanced error context
+- All tests updated and passing (37/37 tests)
+
 ## Ideas for future Enhancements
 
 - Implement per-client rate limiting (API keys/authentication)
@@ -1372,6 +1419,7 @@ spec:
 - Implement distributed tracing with OpenTelemetry (successor to Spring Cloud Sleuth)
 - Add custom metrics collection (Micrometer)
 - Implement database-level auditing and change tracking
+- Flyway database migration
 
 ## License
 
