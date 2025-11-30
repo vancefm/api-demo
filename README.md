@@ -338,10 +338,60 @@ mvn test jacoco:report
 ```
 
 Test Summary:
-- **Total Tests**: 23 (all passing ✅)
-- **Unit Tests**: 10 (Service layer)
-- **Controller Tests**: 7 (Web layer)
-- **Integration Tests**: 6 (Full application)
+- **Total Tests**: 40 (all passing ✅)
+- **Repository Tests**: 7 (Data access layer - `@DataJpaTest`)
+- **Service Tests**: 10 (Business logic - mocked dependencies)
+- **Controller Tests**: 7 (REST endpoints - mocked services)
+- **Integration Tests**: 6 (Full application - real database with `@Transactional`)
+- **Batch Controller Tests**: 10 (Batch operations)
+
+### Test Architecture
+
+#### 1. Repository Tests (`@DataJpaTest`)
+- **Purpose**: Test data access layer directly
+- **Database**: H2 in-memory (auto-rollback)
+- **Example**: CRUD operations, query methods, database constraints
+
+#### 2. Service Tests (Unit Tests)
+- **Purpose**: Test business logic in isolation
+- **Dependencies**: Mocked (repositories, external services)
+- **Database**: None (mocked)
+- **Example**: Service methods, validation logic
+
+#### 3. Controller Tests
+- **Purpose**: Test REST endpoints with mocked services
+- **Dependencies**: Mocked services
+- **Database**: None
+- **Example**: HTTP status codes, response structure
+
+#### 4. Integration Tests (`@SpringBootTest` + `@Transactional`)
+- **Purpose**: Test entire application end-to-end
+- **Database**: Real H2 in-memory database
+- **Key Feature**: `@Transactional` annotation ensures:
+  - Each test runs in its own transaction
+  - All database changes automatically **rollback** after test completes
+  - Ensures **isolation** - tests don't interfere with each other
+  - Prevents **data pollution** if tests fail
+  - Faster than manual cleanup with DELETE statements
+
+```java
+@SpringBootTest
+@AutoConfigureMockMvc
+@Transactional  // ← Enables automatic rollback
+class ComputerSystemIntegrationTest {
+    @Test
+    void testCreateAndRetrieve() throws Exception {
+        // INSERT happens within transaction
+        mockMvc.perform(post("/api/v1/computer-systems")...)
+                .andExpect(status().isCreated());
+        
+        // SELECT happens within transaction
+        mockMvc.perform(get("/api/v1/computer-systems/1"))
+                .andExpect(status().isOk());
+        
+    } // ← After test: automatic ROLLBACK
+}
+```
 
 ### Configuration
 
