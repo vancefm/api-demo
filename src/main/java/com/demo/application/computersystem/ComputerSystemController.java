@@ -8,6 +8,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -76,6 +78,9 @@ public class ComputerSystemController {
                description = "Retrieves all computer systems with pagination and sorting support")
     @ApiResponse(responseCode = "200", description = "List of computer systems retrieved",
                  content = @Content(schema = @Schema(implementation = ComputerSystemDto.class)))
+    @Parameter(name = "page", description = "Page number (0-indexed)", example = "0", in = ParameterIn.QUERY)
+    @Parameter(name = "size", description = "Page size", example = "20", in = ParameterIn.QUERY)
+    @Parameter(name = "sort", description = "Sort criteria (e.g., 'id,desc')", example = "id,asc", in = ParameterIn.QUERY)
     public ResponseEntity<Page<ComputerSystemDto>> getAllComputerSystems(
             @PageableDefault(size = 20, page = 0, sort = "id", direction = Sort.Direction.ASC) Pageable pageable) {
         Page<ComputerSystemDto> computerSystems = computerSystemService.getAllComputerSystems(pageable);
@@ -86,6 +91,9 @@ public class ComputerSystemController {
     @Operation(summary = "Filter computer systems",
                description = "Filters computer systems based on hostname, department, and user with pagination and sorting")
     @ApiResponse(responseCode = "200", description = "Filtered computer systems retrieved")
+    @Parameter(name = "page", description = "Page number (0-indexed)", example = "0", in = ParameterIn.QUERY)
+    @Parameter(name = "size", description = "Page size", example = "20", in = ParameterIn.QUERY)
+    @Parameter(name = "sort", description = "Sort criteria (e.g., 'id,desc')", example = "id,asc", in = ParameterIn.QUERY)
     public ResponseEntity<Page<ComputerSystemDto>> filterComputerSystems(
             @RequestParam(required = false) String hostname,
             @RequestParam(required = false) String department,
