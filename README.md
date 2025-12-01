@@ -1456,6 +1456,142 @@ spec:
 - Updated batch validation to return `ProblemDetail` with enhanced error context
 - All tests updated and passing (37/37 tests)
 
+## Observability & Metrics
+
+This application uses **Spring Boot Actuator** and **Micrometer** for metrics and monitoring. All metrics are automatically registered on application startup and available via standard actuator endpoints.
+
+### Accessing Metrics
+
+#### Get All Metrics
+```
+GET http://localhost:8080/actuator/metrics
+```
+
+Response includes a list of all available metrics with their names.
+
+#### Get Specific Metric Value
+```
+GET http://localhost:8080/actuator/metrics/app.computersystems.total
+```
+
+Response example:
+```json
+{
+  "name": "app.computersystems.total",
+  "description": "Total number of computer systems present in the system",
+  "baseUnit": null,
+  "measurements": [
+    {
+      "statistic": "VALUE",
+      "value": 42.0
+    }
+  ],
+  "availableTags": []
+}
+```
+
+#### Get Metrics in Prometheus Format
+```
+GET http://localhost:8080/actuator/prometheus
+```
+
+Output includes all metrics in Prometheus text format suitable for scraping:
+```
+app_computersystems_total 42.0
+```
+
+### Available Custom Metrics
+
+#### `app.computersystems.total` (GAUGE)
+- **Type**: Gauge (point-in-time value)
+- **Description**: Total number of computer systems present in the system
+- **Updates**: Real-time from database
+- **Usage**: Monitor total system inventory count
+
+### Adding New Metrics
+
+To add a new custom metric, follow these steps:
+
+#### 1. Create a Metric Component
+Create a new component in `com.demo.shared.metrics/` that registers a gauge:
+
+```java
+@Component
+public class CustomMetric {
+    
+    private final MeterRegistry meterRegistry;
+    private final SomeRepository repository;
+    
+    public CustomMetric(MeterRegistry meterRegistry, SomeRepository repository) {
+        this.meterRegistry = meterRegistry;
+        this.repository = repository;
+    }
+    
+    @EventListener(ApplicationReadyEvent.class)
+    public void registerMetrics() {
+        meterRegistry.gauge(
+            "app.custom.metric.name",
+            repository,
+            SomeRepository::countMethod  // Method reference that returns a Number
+        );
+    }
+}
+```
+
+#### 2. Naming Convention
+Use the pattern: `app.<domain>.<metric_type>.<name>`
+
+Examples:
+- `app.computersystems.total`
+- `app.users.active`
+- `app.orders.pending`
+
+#### 3. Automatic Registration
+The metric will be automatically discovered and registered via Spring's component scanning.
+
+### Monitoring and Observability
+
+#### Spring Boot Health Endpoint
+```
+GET http://localhost:8080/actuator/health
+```
+
+Includes health status for all managed components (database, rate limiters, circuit breakers, etc.).
+
+#### Integrating with Monitoring Systems
+
+**Prometheus**: Scrape the `/actuator/prometheus` endpoint at regular intervals (e.g., every 15 seconds).
+
+**Example Prometheus Configuration**:
+```yaml
+scrape_configs:
+  - job_name: 'api-demo'
+    static_configs:
+      - targets: ['localhost:8080']
+    metrics_path: '/actuator/prometheus'
+```
+
+**Grafana**: Create dashboards that query Prometheus metrics like:
+```
+increase(app_computersystems_total[5m])  # 5-minute change rate
+```
+
+### Metrics Configuration
+
+Metrics configuration is in `MetricsConfiguration.java`:
+- Global tags applied to all metrics (application name, version)
+- Timer support via `@Timed` annotations
+- Micrometer MeterRegistry customization
+
+All actuator endpoints are enabled in `application.yml`:
+```yaml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+```
+
 ## Ideas for future Enhancements
 
 - Implement per-client rate limiting (API keys/authentication)
