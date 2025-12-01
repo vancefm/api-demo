@@ -1,0 +1,78 @@
+meta {
+  name: Create ComputerSystem
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:8080/api/v1/computer-systems
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+      "hostname": "{{hostname}}",
+      "manufacturer": "{{manufacturer}}",
+      "model": "{{model}}",
+      "user": "{{user}}",
+      "department": "{{department}}",
+      "macAddress": "{{macAddress}}",
+      "ipAddress": "{{ipAddress}}",
+      "networkName": "{{networkName}}"
+    }
+}
+
+script:pre-request {
+  const manufacturers = ["Dell", "HP", "Lenovo", "Cisco", "IBM", "Apple"];
+    const models = ["PowerEdge R750", "ProLiant DL380", "ThinkCentre M70s", "UCS C240 M6", "x3650 M5", "Mac Studio"];
+    const users = ["john.doe", "jane.smith", "bob.johnson", "alice.williams", "charlie.brown", "diana.prince", "evan.davis", "fiona.moore"];
+    const departments = ["IT", "Finance", "HR", "Sales", "Engineering", "Operations", "Marketing", "Legal"];
+    const networks = ["PROD-NETWORK", "DEV-NETWORK", "TEST-NETWORK", "ADMIN-VLAN", "USER-VLAN", "GUEST-NETWORK"];
+    
+    const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    
+    const generateMAC = () => {
+      let parts = [];
+      for (let i = 0; i < 6; i++) {
+        parts.push(Math.floor(Math.random() * 256).toString(16).padStart(2, "0"));
+      }
+      return parts.join(":");
+    };
+    
+    const generateIP = () => {
+      const octet1 = Math.floor(Math.random() * 254) + 1;
+      const octet2 = Math.floor(Math.random() * 254) + 1;
+      const octet3 = Math.floor(Math.random() * 254) + 1;
+      const octet4 = Math.floor(Math.random() * 254) + 1;
+      return octet1 + "." + octet2 + "." + octet3 + "." + octet4;
+    };
+    
+    bru.setEnvVar("hostname", "SERVER-" + Math.floor(Math.random() * 100000));
+    bru.setEnvVar("manufacturer", randomItem(manufacturers));
+    bru.setEnvVar("model", randomItem(models));
+    bru.setEnvVar("user", randomItem(users));
+    bru.setEnvVar("department", randomItem(departments));
+    bru.setEnvVar("macAddress", generateMAC());
+    bru.setEnvVar("ipAddress", generateIP());
+    bru.setEnvVar("networkName", randomItem(networks));
+}
+
+tests {
+  test("Status is 201", function() {
+      expect(res.getStatus()).to.equal(201);
+    });
+    
+    test("Response has id", function() {
+      expect(res.body).to.have.property("id");
+    });
+    
+    test("Response has hostname", function() {
+      expect(res.body).to.have.property("hostname");
+    });
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
