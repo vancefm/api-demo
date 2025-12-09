@@ -1592,13 +1592,550 @@ management:
         include: health,metrics,prometheus
 ```
 
+## Authentication & Authorization
+
+This API implements a comprehensive, database-driven Role-Based Access Control (RBAC) system with field-level permissions.
+
+### Overview
+
+The RBAC system provides three layers of security:
+
+1. **Authentication**: Validate user identity (LDAP or API tokens)
+2. **Object-Level Authorization**: Control which resources users can access
+3. **Field-Level Authorization**: Control which fields users can read and write
+
+### Key Features
+
+✅ **Dynamic Role Management**: Roles defined in database, not hardcoded enums  
+✅ **Field-Level Permissions**: Control field access granularly  
+✅ **Permission Scopes**: OWN, DEPARTMENT, and ALL scopes  
+✅ **Immutable & Read-Only Fields**: System-enforced field restrictions  
+✅ **Zero-Code-Redeployment**: Changes take effect immediately via cache reload  
+✅ **Permission Caching**: High-performance with in-memory caching  
+
+### Architecture & Flow
+
+```
+┌──────────────┐
+│   Request    │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────────────┐
+│ Authentication Layer │ ← Validate user identity
+│  (Future: LDAP/JWT)  │
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────────┐
+│ Authorization Service    │ ← Check object-level access
+│  - Role lookup           │
+│  - Scope checking        │
+│    (OWN/DEPARTMENT/ALL)  │
+└──────────┬───────────────┘
+           │
+           ▼
+┌──────────────────────────┐
+│ Field Permission Filter  │ ← Filter readable/writable fields
+│  - Read permissions      │
+│  - Write permissions     │
+│  - Immutable fields      │
+└──────────┬───────────────┘
+           │
+           ▼
+┌──────────────────┐
+│   Response       │
+└──────────────────┘
+```
+
+### Database Schema
+
+#### Roles Table
+```sql
+CREATE TABLE roles (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    hierarchy_level INT NOT NULL,
+    description VARCHAR(500),
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
+);
+```
+
+#### Permissions Table
+```sql
+CREATE TABLE permissions (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    resource_type VARCHAR(100) NOT NULL,
+    operation VARCHAR(50) NOT NULL,      -- READ, WRITE, DELETE
+    scope VARCHAR(50) NOT NULL,          -- OWN, DEPARTMENT, ALL
+    field_permissions TEXT,              -- JSON: {"field": "READ|WRITE|HIDDEN"}
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
+);
+```
+
+#### Role_Permissions Table (Junction)
+```sql
+CREATE TABLE role_permissions (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    role_id BIGINT NOT NULL,
+    permission_id BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    FOREIGN KEY (role_id) REFERENCES roles(id),
+    FOREIGN KEY (permission_id) REFERENCES permissions(id)
+);
+```
+
+#### Users Table
+```sql
+CREATE TABLE users (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    department VARCHAR(100) NOT NULL,
+    role_id BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    FOREIGN KEY (role_id) REFERENCES roles(id)
+);
+```
+
+### Default Roles
+
+Three default roles are created on application startup:
+
+#### SUPER_ADMIN (hierarchy: 100)
+- **Scope**: ALL
+- **Permissions**: Full access to all fields
+- **Use Case**: System administrators
+
+#### ADMIN (hierarchy: 50)
+- **Scope**: DEPARTMENT
+- **Permissions**: 
+  - Can read all fields in their department
+  - Cannot modify: systemUser, department, networkName
+- **Use Case**: Department managers
+
+#### USER (hierarchy: 10)
+- **Scope**: OWN
+- **Permissions**:
+  - Can read all fields of their own resources
+  - Cannot modify: systemUser, department, networkName, macAddress, ipAddress
+- **Use Case**: Regular users
+
+### Field Permission Configuration
+
+Field permissions are stored as JSON in the `field_permissions` column:
+
+```json
+{
+  "systemUser": "READ",     // Can read, cannot write
+  "department": "READ",     // Can read, cannot write
+  "networkName": "WRITE",   // Can read and write
+  "id": "HIDDEN"            // Completely hidden from response
+}
+```
+
+**Permission Levels**:
+- `WRITE`: Can read and write
+- `READ`: Can read but not write
+- `HIDDEN`: Completely hidden from response
+
+### Admin APIs
+
+All admin endpoints require SUPER_ADMIN role and are prefixed with `/api/v1/admin`.
+
+#### Role Management
+
+```http
+# Create Role
+POST /api/v1/admin/roles
+Content-Type: application/json
+
+{
+  "name": "DEVELOPER",
+  "hierarchyLevel": 30,
+  "description": "Developer role with code access"
+}
+
+# Get All Roles
+GET /api/v1/admin/roles
+
+# Get Role by ID
+GET /api/v1/admin/roles/{id}
+
+# Update Role
+PUT /api/v1/admin/roles/{id}
+
+# Delete Role
+DELETE /api/v1/admin/roles/{id}
+```
+
+#### Permission Management
+
+```http
+# Create Permission
+POST /api/v1/admin/permissions
+Content-Type: application/json
+
+{
+  "resourceType": "ComputerSystem",
+  "operation": "READ",
+  "scope": "DEPARTMENT",
+  "fieldPermissions": "{\"systemUser\":\"READ\",\"department\":\"READ\"}"
+}
+
+# Get All Permissions
+GET /api/v1/admin/permissions
+
+# Get Permission by ID
+GET /api/v1/admin/permissions/{id}
+
+# Update Permission
+PUT /api/v1/admin/permissions/{id}
+
+# Delete Permission
+DELETE /api/v1/admin/permissions/{id}
+```
+
+#### Role-Permission Assignment
+
+```http
+# Assign Permission to Role
+POST /api/v1/admin/roles/{roleId}/permissions/{permissionId}
+
+# Revoke Permission from Role
+DELETE /api/v1/admin/roles/{roleId}/permissions/{permissionId}
+
+# Get Permissions for Role
+GET /api/v1/admin/roles/{roleId}/permissions
+```
+
+#### User Management
+
+```http
+# Create User
+POST /api/v1/admin/users
+Content-Type: application/json
+
+{
+  "username": "john.doe",
+  "email": "john.doe@example.com",
+  "department": "IT",
+  "roleId": 1
+}
+
+# Get All Users
+GET /api/v1/admin/users
+
+# Get User by ID
+GET /api/v1/admin/users/{id}
+
+# Update User
+PUT /api/v1/admin/users/{id}
+
+# Delete User
+DELETE /api/v1/admin/users/{id}
+```
+
+#### Cache Management
+
+```http
+# Reload Permissions Cache
+POST /api/v1/admin/cache/reload
+
+# Response
+{
+  "message": "Permissions cache reloaded successfully"
+}
+```
+
+**When to Reload Cache**:
+- After creating/updating/deleting roles
+- After creating/updating/deleting permissions
+- After assigning/revoking role permissions
+
+Cache automatically reloads after these operations, but manual reload is available if needed.
+
+### Step-by-Step: Adding a New Object Type
+
+Example: Adding a "Server" resource type to the RBAC system.
+
+#### Step 1: Define the Entity
+
+```java
+@Entity
+@Table(name = "servers")
+public class Server {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    private String name;
+    private String ipAddress;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by")
+    private User createdBy;
+    
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+    
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+    
+    // Getters, setters, builders...
+}
+```
+
+#### Step 2: Update FieldPermissionsConfig
+
+```java
+private void initializeServerFields() {
+    // Immutable fields
+    immutableFields.put("Server", Set.of("id", "createdAt", "createdBy"));
+    
+    // Read-only fields
+    readOnlyFields.put("Server", Set.of("updatedAt"));
+    
+    // Hidden fields (role-dependent)
+    hiddenFields.put("Server", new HashSet<>());
+}
+```
+
+#### Step 3: Create Permissions via Admin API
+
+```http
+# Create READ permission for ADMIN role
+POST /api/v1/admin/permissions
+{
+  "resourceType": "Server",
+  "operation": "READ",
+  "scope": "DEPARTMENT",
+  "fieldPermissions": "{}"
+}
+
+# Create WRITE permission for ADMIN role
+POST /api/v1/admin/permissions
+{
+  "resourceType": "Server",
+  "operation": "WRITE",
+  "scope": "DEPARTMENT",
+  "fieldPermissions": "{\"ipAddress\":\"READ\"}"
+}
+```
+
+#### Step 4: Assign Permissions to Roles
+
+```http
+# Get ADMIN role ID (assume it's 2)
+GET /api/v1/admin/roles
+
+# Assign READ permission (assume permission ID is 10)
+POST /api/v1/admin/roles/2/permissions/10
+
+# Assign WRITE permission (assume permission ID is 11)
+POST /api/v1/admin/roles/2/permissions/11
+```
+
+#### Step 5: Reload Cache
+
+```http
+POST /api/v1/admin/cache/reload
+```
+
+### Step-by-Step: Adding a New Field to Existing Object
+
+Example: Adding a "location" field to ComputerSystem.
+
+#### Step 1: Update Entity
+
+```java
+@Entity
+@Table(name = "computer_systems")
+public class ComputerSystem {
+    // ... existing fields ...
+    
+    @Column(length = 255)
+    private String location;
+    
+    // Getter and setter
+    public String getLocation() {
+        return location;
+    }
+    
+    public void setLocation(String location) {
+        this.location = location;
+    }
+}
+```
+
+#### Step 2: Update DTO
+
+```java
+@Schema(description = "Computer System Data Transfer Object")
+public class ComputerSystemDto {
+    // ... existing fields ...
+    
+    @Schema(description = "Physical location", example = "Building A, Floor 3")
+    private String location;
+    
+    // Getter and setter
+}
+```
+
+#### Step 3: Decide Field Permissions
+
+For each role, decide if the field should be:
+- `WRITE` (default - can read and write)
+- `READ` (read-only for this role)
+- `HIDDEN` (completely hidden)
+
+#### Step 4: Update Permissions via Admin API
+
+```http
+# Update ADMIN role's WRITE permission for ComputerSystem
+PUT /api/v1/admin/permissions/{permissionId}
+{
+  "resourceType": "ComputerSystem",
+  "operation": "WRITE",
+  "scope": "DEPARTMENT",
+  "fieldPermissions": "{\"systemUser\":\"READ\",\"department\":\"READ\",\"networkName\":\"READ\",\"location\":\"WRITE\"}"
+}
+```
+
+#### Step 5: Reload Cache
+
+```http
+POST /api/v1/admin/cache/reload
+```
+
+### Security Best Practices
+
+1. **Principle of Least Privilege**: Grant minimum permissions required
+2. **Regular Permission Audits**: Review role permissions quarterly
+3. **Hierarchy Levels**: Use consistent hierarchy levels (10, 20, 30, etc.)
+4. **Field-Level Security**: Always define field permissions explicitly
+5. **Cache Management**: Reload cache after permission changes
+6. **Audit Logging**: Log all permission changes (future enhancement)
+7. **Authentication**: Integrate with LDAP or JWT in production
+8. **API Protection**: Restrict admin endpoints to trusted networks
+9. **Database Backups**: Regular backups of roles/permissions tables
+10. **Testing**: Test permission changes in staging before production
+
+### Testing Scenarios
+
+#### Test 1: User Can Only Access Own Resources
+
+```http
+# As USER role
+GET /api/v1/computer-systems
+
+# Expected: Only sees ComputerSystems where createdBy = current user
+```
+
+#### Test 2: Admin Can Access Department Resources
+
+```http
+# As ADMIN role in IT department
+GET /api/v1/computer-systems
+
+# Expected: Sees all ComputerSystems in IT department
+```
+
+#### Test 3: Field-Level Restrictions
+
+```http
+# As USER role
+PUT /api/v1/computer-systems/1
+{
+  "hostname": "NEW-NAME",
+  "department": "HR"   // Should be rejected
+}
+
+# Expected: 403 Forbidden - Cannot modify 'department' field
+```
+
+#### Test 4: Super Admin Has Full Access
+
+```http
+# As SUPER_ADMIN role
+PUT /api/v1/computer-systems/1
+{
+  "hostname": "NEW-NAME",
+  "department": "HR"   // Should succeed
+}
+
+# Expected: 200 OK - All fields modifiable
+```
+
+### Troubleshooting Guide
+
+#### Problem: Permission changes not taking effect
+
+**Solution**: Reload the permissions cache:
+```http
+POST /api/v1/admin/cache/reload
+```
+
+#### Problem: User cannot access their own resources
+
+**Checklist**:
+1. Verify user has a role assigned
+2. Check role has READ permission with scope OWN or higher
+3. Verify createdBy field is set correctly on resources
+4. Reload cache if permissions were recently changed
+
+#### Problem: Field appears in response but shouldn't
+
+**Checklist**:
+1. Check field permissions JSON for the role's permission
+2. Verify field is marked as HIDDEN (not READ)
+3. Reload cache
+4. Check FieldPermissionsConfig doesn't override setting
+
+#### Problem: Cannot create/update role
+
+**Possible Causes**:
+1. Role name already exists (must be unique)
+2. Hierarchy level conflicts with existing role
+3. Missing required fields (name, hierarchyLevel)
+
+#### Problem: Slow permission checks
+
+**Solutions**:
+1. Verify cache is working (check logs for cache hits)
+2. Consider increasing JVM heap size for larger permission sets
+3. Review database indexes on role/permission tables
+
+### Performance Considerations
+
+- **Permission Cache**: In-memory cache avoids database queries
+- **Lazy Loading**: User relationships loaded only when needed
+- **Database Indexes**: Indexed on role names, user usernames
+- **Field Filtering**: Happens in-memory after database fetch
+- **Connection Pooling**: HikariCP connection pool (default in Spring Boot)
+
+### Future Enhancements
+
+- Integrate with Spring Security for authentication
+- Add LDAP/Active Directory integration
+- Implement JWT token-based authentication
+- Add audit logging for all permission checks
+- Implement role hierarchy inheritance
+- Add UI for role/permission management
+- Support for custom permission validators
+- Implement time-based permissions (scheduled access)
+
 ## Ideas for future Enhancements
 
+- ~~Add authentication and authorization (JWT)~~ ✅ **IMPLEMENTED: RBAC system with field-level permissions**
 - Implement per-client rate limiting (API keys/authentication)
 - Implement distributed rate limiting with Redis
 - Add caching layer (Redis) for frequently accessed data
 - Implement audit logging for all operations
-- Add authentication and authorization (JWT)
+- Integrate Spring Security with LDAP/JWT authentication
 - Implement soft deletes for data recovery
 - Create analytics and reporting endpoints
 - Add request/response encryption for sensitive data
