@@ -1,6 +1,8 @@
 package com.demo.domain.computersystem;
 
+import com.demo.domain.security.User;
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "computer_systems")
@@ -34,6 +36,16 @@ public class ComputerSystem {
     @Column(nullable = false)
     private String networkName;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by")
+    private User createdBy;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
     // Constructors
     public ComputerSystem() {
     }
@@ -49,6 +61,17 @@ public class ComputerSystem {
         this.macAddress = macAddress;
         this.ipAddress = ipAddress;
         this.networkName = networkName;
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 
     // Getters and Setters
@@ -130,6 +153,30 @@ public class ComputerSystem {
 
     public void setNetworkName(String networkName) {
         this.networkName = networkName;
+    }
+
+    public User getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(User createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
     }
 
     // Builder pattern
