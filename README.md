@@ -1810,6 +1810,80 @@ Field permissions are stored as JSON in the `field_permissions` column:
 - `READ`: Can read but not write
 - `HIDDEN`: Completely hidden from response
 
+### Code Organization
+
+The RBAC system follows a clean, modular package structure with separation of concerns:
+
+#### Domain Layer (`com.demo.domain`)
+
+Entity types are organized in their own packages, each containing the entity and its DTO:
+
+```
+domain/
+├── computersystem/
+│   ├── ComputerSystem.java          // Entity
+│   └── ComputerSystemDto.java       // Data Transfer Object
+├── user/
+│   ├── User.java                    // Entity
+│   └── UserDto.java                 // Data Transfer Object
+├── security/
+│   ├── Role.java                    // Entity
+│   ├── Permission.java              // Entity
+│   ├── RolePermission.java          // Junction Entity
+│   └── dto/
+│       ├── RoleDto.java
+│       └── PermissionDto.java
+└── batch/
+    ├── BatchComputerSystemRequest.java
+    └── BatchComputerSystemResponse.java
+```
+
+**Pattern**: Each domain entity type gets its own package containing both the entity and DTO, promoting modularity and making it easy to locate related files.
+
+#### Application Layer (`com.demo.application`)
+
+Repositories, services, and controllers are organized by domain:
+
+```
+application/
+├── computersystem/
+│   ├── ComputerSystemRepository.java
+│   ├── ComputerSystemService.java
+│   └── ComputerSystemController.java
+├── user/
+│   └── UserRepository.java
+├── security/
+│   ├── RoleRepository.java
+│   ├── PermissionRepository.java
+│   ├── RolePermissionRepository.java
+│   ├── RoleManagementService.java
+│   └── RoleManagementController.java
+└── batch/
+    └── BatchComputerSystemController.java
+```
+
+**Pattern**: Each domain gets its own package in the application layer, containing its repository, service, and controller. This maintains consistency and makes it easy to navigate the codebase.
+
+#### Shared Layer (`com.demo.shared`)
+
+Cross-cutting concerns like security services, exception handling, and utilities:
+
+```
+shared/
+├── security/
+│   ├── RolePermissionService.java         // Permission caching
+│   ├── AuthorizationService.java          // Access control checks
+│   ├── FieldPermissionFilterService.java  // DTO field filtering
+│   ├── FieldPermissionsConfig.java        // Immutable field definitions
+│   ├── RoleInitializationService.java     // Default role setup
+│   ├── CustomUserPrincipal.java           // User security principal
+│   ├── ApiTokenPrincipal.java             // API token principal
+│   └── AuthenticationContext.java         // Thread-local auth context
+└── exception/
+    ├── DuplicateResourceException.java
+    └── ResourceNotFoundException.java
+```
+
 ### Admin APIs
 
 All admin endpoints require SUPER_ADMIN role and are prefixed with `/api/v1/admin`.
