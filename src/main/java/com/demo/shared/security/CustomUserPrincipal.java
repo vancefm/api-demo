@@ -1,6 +1,6 @@
 package com.demo.shared.security;
 
-import com.demo.domain.security.User;
+import com.demo.domain.user.User;
 
 /**
  * Security principal representing an authenticated user.

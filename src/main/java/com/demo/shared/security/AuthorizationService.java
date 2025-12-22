@@ -1,7 +1,7 @@
 package com.demo.shared.security;
 
 import com.demo.domain.computersystem.ComputerSystem;
-import com.demo.domain.security.User;
+import com.demo.domain.user.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

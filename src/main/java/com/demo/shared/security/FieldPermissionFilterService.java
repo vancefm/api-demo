@@ -1,6 +1,6 @@
 package com.demo.shared.security;
 
-import com.demo.domain.security.User;
+import com.demo.domain.user.User;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

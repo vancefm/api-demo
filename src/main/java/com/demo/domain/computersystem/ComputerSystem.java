@@ -1,6 +1,6 @@
 package com.demo.domain.computersystem;
 
-import com.demo.domain.security.User;
+import com.demo.domain.user.User;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 

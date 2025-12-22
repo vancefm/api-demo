@@ -1,5 +1,6 @@
-package com.demo.domain.security;
+package com.demo.domain.user;
 
+import com.demo.domain.security.Role;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
