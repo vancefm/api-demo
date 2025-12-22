@@ -1,4 +1,4 @@
-package com.demo.application.security;
+package com.demo.application.user;
 
 import com.demo.domain.user.User;
 import org.springframework.data.jpa.repository.JpaRepository;

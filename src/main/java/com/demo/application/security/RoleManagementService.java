@@ -1,5 +1,6 @@
 package com.demo.application.security;
 
+import com.demo.application.user.UserRepository;
 import com.demo.domain.security.Permission;
 import com.demo.domain.security.Role;
 import com.demo.domain.security.RolePermission;
