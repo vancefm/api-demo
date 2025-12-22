@@ -17,10 +17,6 @@ public class RoleDto {
     @Schema(description = "Role name", example = "DEVELOPER")
     private String name;
     
-    @NotNull(message = "Hierarchy level is required")
-    @Schema(description = "Hierarchy level (higher = more privileges)", example = "30")
-    private Integer hierarchyLevel;
-    
     @Schema(description = "Role description", example = "Developer role with code access")
     private String description;
     
@@ -28,10 +24,9 @@ public class RoleDto {
     public RoleDto() {
     }
     
-    public RoleDto(Long id, String name, Integer hierarchyLevel, String description) {
+    public RoleDto(Long id, String name, String description) {
         this.id = id;
         this.name = name;
-        this.hierarchyLevel = hierarchyLevel;
         this.description = description;
     }
     
@@ -50,14 +45,6 @@ public class RoleDto {
     
     public void setName(String name) {
         this.name = name;
-    }
-    
-    public Integer getHierarchyLevel() {
-        return hierarchyLevel;
-    }
-    
-    public void setHierarchyLevel(Integer hierarchyLevel) {
-        this.hierarchyLevel = hierarchyLevel;
     }
     
     public String getDescription() {

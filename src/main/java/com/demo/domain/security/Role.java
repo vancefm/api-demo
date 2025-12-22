@@ -18,9 +18,6 @@ public class Role {
     @Column(nullable = false, unique = true, length = 100)
     private String name;
 
-    @Column(nullable = false)
-    private Integer hierarchyLevel;
-
     @Column(length = 500)
     private String description;
 
@@ -34,9 +31,8 @@ public class Role {
     public Role() {
     }
 
-    public Role(String name, Integer hierarchyLevel, String description) {
+    public Role(String name, String description) {
         this.name = name;
-        this.hierarchyLevel = hierarchyLevel;
         this.description = description;
     }
 
@@ -66,14 +62,6 @@ public class Role {
 
     public void setName(String name) {
         this.name = name;
-    }
-
-    public Integer getHierarchyLevel() {
-        return hierarchyLevel;
-    }
-
-    public void setHierarchyLevel(Integer hierarchyLevel) {
-        this.hierarchyLevel = hierarchyLevel;
     }
 
     public String getDescription() {
@@ -107,16 +95,10 @@ public class Role {
 
     public static class Builder {
         private String name;
-        private Integer hierarchyLevel;
         private String description;
 
         public Builder name(String name) {
             this.name = name;
-            return this;
-        }
-
-        public Builder hierarchyLevel(Integer hierarchyLevel) {
-            this.hierarchyLevel = hierarchyLevel;
             return this;
         }
 
@@ -126,7 +108,7 @@ public class Role {
         }
 
         public Role build() {
-            return new Role(name, hierarchyLevel, description);
+            return new Role(name, description);
         }
     }
 }

@@ -55,7 +55,6 @@ public class RoleManagementService {
         
         Role role = Role.builder()
             .name(dto.getName())
-            .hierarchyLevel(dto.getHierarchyLevel())
             .description(dto.getDescription())
             .build();
         
@@ -87,7 +86,6 @@ public class RoleManagementService {
         }
         
         role.setName(dto.getName());
-        role.setHierarchyLevel(dto.getHierarchyLevel());
         role.setDescription(dto.getDescription());
         
         Role updated = roleRepository.save(role);
@@ -315,7 +313,6 @@ public class RoleManagementService {
         return new RoleDto(
             role.getId(),
             role.getName(),
-            role.getHierarchyLevel(),
             role.getDescription()
         );
     }

@@ -116,9 +116,9 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
       - [Role\_Permissions Table (Junction)](#role_permissions-table-junction)
       - [Users Table](#users-table)
     - [Default Roles](#default-roles)
-      - [SUPER\_ADMIN (hierarchy: 100)](#super_admin-hierarchy-100)
-      - [ADMIN (hierarchy: 50)](#admin-hierarchy-50)
-      - [USER (hierarchy: 10)](#user-hierarchy-10)
+      - [SUPER\_ADMIN](#super_admin)
+      - [ADMIN](#admin)
+      - [USER](#user)
     - [Field Permission Configuration](#field-permission-configuration)
     - [Admin APIs](#admin-apis)
       - [Role Management](#role-management)
@@ -1723,7 +1723,6 @@ The RBAC system provides three layers of security:
 CREATE TABLE roles (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(100) UNIQUE NOT NULL,
-    hierarchy_level INT NOT NULL,
     description VARCHAR(500),
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL
@@ -1773,19 +1772,19 @@ CREATE TABLE users (
 
 Three default roles are created on application startup:
 
-#### SUPER_ADMIN (hierarchy: 100)
+#### SUPER_ADMIN
 - **Scope**: ALL
 - **Permissions**: Full access to all fields
 - **Use Case**: System administrators
 
-#### ADMIN (hierarchy: 50)
+#### ADMIN
 - **Scope**: DEPARTMENT
 - **Permissions**: 
   - Can read all fields in their department
   - Cannot modify: systemUser, department, networkName
 - **Use Case**: Department managers
 
-#### USER (hierarchy: 10)
+#### USER
 - **Scope**: OWN
 - **Permissions**:
   - Can read all fields of their own resources
@@ -1897,7 +1896,6 @@ Content-Type: application/json
 
 {
   "name": "DEVELOPER",
-  "hierarchyLevel": 30,
   "description": "Developer role with code access"
 }
 
@@ -2157,14 +2155,13 @@ POST /api/v1/admin/cache/reload
 
 1. **Principle of Least Privilege**: Grant minimum permissions required
 2. **Regular Permission Audits**: Review role permissions quarterly
-3. **Hierarchy Levels**: Use consistent hierarchy levels (10, 20, 30, etc.)
-4. **Field-Level Security**: Always define field permissions explicitly
-5. **Cache Management**: Reload cache after permission changes
-6. **Audit Logging**: Log all permission changes (future enhancement)
-7. **Authentication**: Integrate with LDAP or JWT in production
-8. **API Protection**: Restrict admin endpoints to trusted networks
-9. **Database Backups**: Regular backups of roles/permissions tables
-10. **Testing**: Test permission changes in staging before production
+3. **Field-Level Security**: Always define field permissions explicitly
+4. **Cache Management**: Reload cache after permission changes
+5. **Audit Logging**: Log all permission changes (future enhancement)
+6. **Authentication**: Integrate with LDAP or JWT in production
+7. **API Protection**: Restrict admin endpoints to trusted networks
+8. **Database Backups**: Regular backups of roles/permissions tables
+9. **Testing**: Test permission changes in staging before production
 
 ### Testing Scenarios
 
@@ -2241,8 +2238,7 @@ POST /api/v1/admin/cache/reload
 
 **Possible Causes**:
 1. Role name already exists (must be unique)
-2. Hierarchy level conflicts with existing role
-3. Missing required fields (name, hierarchyLevel)
+2. Missing required fields (name)
 
 #### Problem: Slow permission checks
 
@@ -2265,7 +2261,6 @@ POST /api/v1/admin/cache/reload
 - Add LDAP/Active Directory integration
 - Implement JWT token-based authentication
 - Add audit logging for all permission checks
-- Implement role hierarchy inheritance
 - Add UI for role/permission management
 - Support for custom permission validators
 - Implement time-based permissions (scheduled access)

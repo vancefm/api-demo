@@ -28,8 +28,4 @@ public class CustomUserPrincipal {
     public String getRoleName() {
         return user.getRole().getName();
     }
-    
-    public Integer getHierarchyLevel() {
-        return user.getRole().getHierarchyLevel();
-    }
 }

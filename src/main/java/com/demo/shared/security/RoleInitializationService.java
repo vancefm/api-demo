@@ -50,11 +50,11 @@ public class RoleInitializationService {
         logger.info("Initializing default roles and permissions");
         
         // Create default roles if they don't exist
-        Role superAdmin = createRoleIfNotExists("SUPER_ADMIN", 100, 
+        Role superAdmin = createRoleIfNotExists("SUPER_ADMIN", 
             "Full system access with all permissions");
-        Role admin = createRoleIfNotExists("ADMIN", 50, 
+        Role admin = createRoleIfNotExists("ADMIN", 
             "Department-scoped access with limited field modifications");
-        Role user = createRoleIfNotExists("USER", 10, 
+        Role user = createRoleIfNotExists("USER", 
             "Access to own resources only, cannot modify sensitive fields");
         
         // Create ComputerSystem permissions for SUPER_ADMIN
@@ -72,7 +72,7 @@ public class RoleInitializationService {
         logger.info("Default roles and permissions initialized successfully");
     }
     
-    private Role createRoleIfNotExists(String name, Integer hierarchyLevel, String description) {
+    private Role createRoleIfNotExists(String name, String description) {
         Optional<Role> existingRole = roleRepository.findByName(name);
         if (existingRole.isPresent()) {
             logger.debug("Role already exists: {}", name);
@@ -81,7 +81,6 @@ public class RoleInitializationService {
         
         Role role = Role.builder()
             .name(name)
-            .hierarchyLevel(hierarchyLevel)
             .description(description)
             .build();
         
