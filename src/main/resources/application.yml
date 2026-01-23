@@ -244,3 +244,69 @@ springdoc:
     enabled: true
   api-docs:
     path: /v3/api-docs
+
+# ============================================================================
+# AUTHENTICATION & JWT / JWKS CONFIGURATION
+# ============================================================================
+app:
+  gateway:
+    # When true the integrated Spring Cloud Gateway will own rate-limiting,
+    # circuit breakers and compression. Set false to use app-level interceptors.
+    enabled: true
+
+security:
+  ldap:
+    enabled: true
+    # LDAP/Active Directory connection URLs; prefer via environment variable
+    urls: ${LDAP_URLS:ldap://ad.example.com:389}
+    base-dn: ${LDAP_BASE_DN:DC=example,DC=com}
+    # Example: (sAMAccountName={0}) for AD; map to your directory schema
+    user-search-filter: ${LDAP_USER_SEARCH_FILTER:(sAMAccountName={0})}
+
+  # JWT / JWKS settings
+  jwt:
+    # Key source hint: keystore|env|filesystem (do NOT place private key plaintext here)
+    key-source: keystore
+    # PRIVATE KEY PLACEHOLDER (INTENTIONALLY BLANK)
+    # DO NOT place a raw private key here. Provide a PKCS#12/JKS keystore path
+    # or supply the private key via secure environment variable / secret manager.
+    # Requirements: RSA key length MUST be at least 4096 bits for this deployment.
+    # Example deployment options:
+    #  - Keystore path + password supplied as environment variables
+    #  - PEM PRIVATE KEY provided to an environment secret and loaded by the app
+    private-key: "" # <-- supply externally (keystore or env); must be RSA-4096
+
+    # ID for the key (kid) and signing algorithm
+    kid: auth-server-key-1
+    alg: RS512
+
+    # Token TTL (ISO-8601 duration). Default 2 hours.
+    ttl: PT2H
+
+    # Configurable claims mapping; keys under this prefix will be copied into JWT claims
+    # Example: security.jwt.claims.issuer = https://auth.example.com
+    claims:
+      issuer: ${JWT_ISSUER:https://api.example.com}
+      audience: ${JWT_AUDIENCE:api-clients}
+
+  jwks:
+    # Path where the public JWK set is exposed for verification by the gateway
+    path: /.well-known/jwks.json
+
+  # BCrypt configuration for DB-stored admin passwords
+  password:
+    bcrypt:
+      # Strength (log rounds). Higher = slower to compute and more secure. Default 12.
+      strength: ${BCRYPT_STRENGTH:12}
+
+app:
+  auth:
+    persistent-tokens:
+      enabled: true
+      default-expiry-days: 365
+
+# NOTES:
+# - Private key must NOT be checked into source control or placed in application.yml.
+#   Use a keystore or environment/secret manager during deployment. Key size: RSA-4096.
+# - JWKS endpoint exposes ONLY public keys; safe to publish so the gateway and
+#   external services can verify tokens and support key rotation.

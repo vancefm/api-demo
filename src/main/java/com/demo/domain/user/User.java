@@ -25,6 +25,9 @@ public class User {
     @Column(nullable = false, length = 100)
     private String department;
 
+    @Column(nullable = true, length = 255)
+    private String passwordHash;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
@@ -44,6 +47,14 @@ public class User {
         this.email = email;
         this.department = department;
         this.role = role;
+    }
+
+    public User(String username, String email, String department, Role role, String passwordHash) {
+        this.username = username;
+        this.email = email;
+        this.department = department;
+        this.role = role;
+        this.passwordHash = passwordHash;
     }
 
     @PrePersist
@@ -98,6 +109,14 @@ public class User {
         this.role = role;
     }
 
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -124,6 +143,7 @@ public class User {
         private String email;
         private String department;
         private Role role;
+        private String passwordHash;
 
         public Builder username(String username) {
             this.username = username;
@@ -145,8 +165,14 @@ public class User {
             return this;
         }
 
+        public Builder passwordHash(String passwordHash) {
+            // optional password for DB-backed admin accounts (BCrypt-hashed)
+            this.passwordHash = passwordHash;
+            return this;
+        }
+
         public User build() {
-            return new User(username, email, department, role);
+            return new User(username, email, department, role, passwordHash);
         }
     }
 }
