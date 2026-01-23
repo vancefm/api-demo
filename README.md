@@ -1681,6 +1681,25 @@ The RBAC system provides three layers of security:
 ✅ **Zero-Code-Redeployment**: Changes take effect immediately via cache reload  
 ✅ **Permission Caching**: High-performance with in-memory caching  
 
+### PEM Keys & BouncyCastle
+
+- The authentication subsystem supports RSA private keys provided as PEM files.
+- Supported PEM formats: PKCS#8 (`-----BEGIN PRIVATE KEY-----`) and PKCS#1
+  (`-----BEGIN RSA PRIVATE KEY-----`). The code accepts either format and will
+  convert PKCS#1 to a Java-compatible key at startup.
+- We include the `bcprov-jdk15on` (BouncyCastle) dependency to parse/convert
+  PEM files during application initialization. This avoids requiring offline
+  key conversion during development and makes local testing simpler.
+- If you prefer not to include BouncyCastle, convert keys to PKCS#8 with OpenSSL:
+
+```bash
+openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in examplejwtkey.pem -out examplejwtkey-pk8.pem
+```
+
+Add the resulting PKCS#8 PEM path to `security.jwt.private-key-path` or set
+`JWT_PRIVATE_KEY_PATH` in the environment. In production, use a secure
+keystore or secret manager and avoid storing private keys in `application.yml`.
+
 ### Architecture & Flow
 
 ```

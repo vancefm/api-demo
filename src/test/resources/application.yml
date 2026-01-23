@@ -1,0 +1,9 @@
+spring:
+  cloud:
+    gateway:
+      enabled: false
+  autoconfigure:
+    exclude:
+      - org.springframework.cloud.gateway.config.GatewayAutoConfiguration
+      - org.springframework.cloud.gateway.config.GatewayClassPathWarningAutoConfiguration
+      - org.springframework.cloud.gateway.config.GatewayReactiveLoadBalancerClientAutoConfiguration

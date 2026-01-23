@@ -38,7 +38,7 @@ public class EmailNotificationService {
 
     public EmailNotificationService(
             JavaMailSender mailSender,
-            @Value("${app.admin.email}") String adminEmail,
+            @Value("${app.admin.email:admin@example.com}") String adminEmail,
             @Value("${app.name:Computer Systems API}") String appName,
             @Value("${app.environment:development}") String appEnvironment) {
         this.mailSender = mailSender;

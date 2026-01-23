@@ -248,11 +248,15 @@ springdoc:
 # ============================================================================
 # AUTHENTICATION & JWT / JWKS CONFIGURATION
 # ============================================================================
-app:
+app_config:
   gateway:
     # When true the integrated Spring Cloud Gateway will own rate-limiting,
     # circuit breakers and compression. Set false to use app-level interceptors.
     enabled: true
+  auth:
+    persistent-tokens:
+      enabled: true
+      default-expiry-days: 365
 
 security:
   ldap:
@@ -266,15 +270,15 @@ security:
   # JWT / JWKS settings
   jwt:
     # Key source hint: keystore|env|filesystem (do NOT place private key plaintext here)
-    key-source: keystore
+    # This deployment uses a PEM file; set to 'filesystem' and provide the path.
+    key-source: filesystem
+    # Path to the PEM private key file (PKCS#8 PEM, RSA-4096). Prefer supplying
+    # via environment variable `JWT_PRIVATE_KEY_PATH`. Default points to examplejwtkey.pem
+    # placed at the project root for local testing.
+    private-key-path: ${JWT_PRIVATE_KEY_PATH:examplejwtkey.pem}
     # PRIVATE KEY PLACEHOLDER (INTENTIONALLY BLANK)
-    # DO NOT place a raw private key here. Provide a PKCS#12/JKS keystore path
-    # or supply the private key via secure environment variable / secret manager.
-    # Requirements: RSA key length MUST be at least 4096 bits for this deployment.
-    # Example deployment options:
-    #  - Keystore path + password supplied as environment variables
-    #  - PEM PRIVATE KEY provided to an environment secret and loaded by the app
-    private-key: "" # <-- supply externally (keystore or env); must be RSA-4096
+    # The raw `private-key` field must remain blank in source-controlled config.
+    private-key: "" # not used when using private-key-path
 
     # ID for the key (kid) and signing algorithm
     kid: auth-server-key-1
@@ -299,14 +303,27 @@ security:
       # Strength (log rounds). Higher = slower to compute and more secure. Default 12.
       strength: ${BCRYPT_STRENGTH:12}
 
-app:
-  auth:
-    persistent-tokens:
-      enabled: true
-      default-expiry-days: 365
+
 
 # NOTES:
 # - Private key must NOT be checked into source control or placed in application.yml.
 #   Use a keystore or environment/secret manager during deployment. Key size: RSA-4096.
 # - JWKS endpoint exposes ONLY public keys; safe to publish so the gateway and
 #   external services can verify tokens and support key rotation.
+
+# PEM key formats & local testing
+# - The application accepts PKCS#8 PEM (`-----BEGIN PRIVATE KEY-----`) and
+#   PKCS#1 RSA PEM (`-----BEGIN RSA PRIVATE KEY-----`). For convenience the
+#   startup parser will accept either format — BouncyCastle is used to parse
+#   and convert PKCS#1 into a Java-compatible key when needed.
+# - Production: prefer storing keys in a secure keystore or secret manager.
+# - Local conversion (if you prefer not to include BouncyCastle):
+#   Convert PKCS#1 -> PKCS#8 with OpenSSL:
+#
+#   ```bash
+#   openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in examplejwtkey.pem -out examplejwtkey-pk8.pem
+#   ```
+#
+# - Notes on dependency: `bcprov-jdk15on` is added to `pom.xml` solely to
+#   support flexible PEM parsing at startup; it is not used for runtime crypto
+#   operations beyond initial key material parsing.

@@ -20,6 +20,21 @@ This document summarizes the authentication and authorization design for the API
 - The application exposes public keys at `/.well-known/jwks.json` so the gateway and other services can fetch verification keys.
 - JWKS contains public key material only (no private key exposure).
 
+## Roles and JWT claims
+- When a user authenticates via `/api/v1/auth/login`, the issued JWT will include a `roles` claim: an array of role names assigned to the user (e.g., `["SUPER_ADMIN"]`).
+- The integrated gateway and downstream services may use the `roles` claim to perform authorization checks. Roles are derived from the `User`'s `role.name` in the database or from LDAP group mappings.
+
+## Persistent API tokens
+- Persistent tokens allow service accounts or developers to obtain a static API token for non-interactive use.
+- Token format: `tokenId.secret` where `tokenId` is a UUID stored in the database and `secret` is a high-entropy random value shown only once at creation.
+- Storage: the service stores only a BCrypt hash of the `secret` in the `api_tokens` table (column `token_hash`). The raw secret is returned to the caller only once.
+- Validation: when an incoming Bearer token does not parse as a JWT, the app will attempt to interpret it as `tokenId.secret`, look up `tokenId`, verify the `secret` via BCrypt, check expiry and revoked flag, then authenticate the request as the token owner.
+- Revocation: tokens can be revoked via DELETE `/api/v1/tokens/{tokenId}` which sets the `revoked` flag.
+
+## One-time token display and security
+- The API returns the raw persistent token value only at creation time. Store it securely; the server will not be able to show it again.
+- The `api_tokens` table stores only a BCrypt hash of the secret. This protects against leakage of raw tokens if the DB is compromised.
+
 ## BCrypt and admin accounts
 - Internal admin accounts will store a BCrypt password hash in the database.
 - `security.password.bcrypt.strength` controls the BCrypt cost factor.

@@ -11,6 +11,7 @@ import java.util.Map;
 public class JwtProperties {
     private String keySource;
     private String privateKey; // intentionally left blank in application.yml
+    private String privateKeyPath;
     private String kid;
     private String alg = "RS512";
     private Duration ttl = Duration.ofHours(2);
@@ -30,6 +31,14 @@ public class JwtProperties {
 
     public void setPrivateKey(String privateKey) {
         this.privateKey = privateKey;
+    }
+
+    public String getPrivateKeyPath() {
+        return privateKeyPath;
+    }
+
+    public void setPrivateKeyPath(String privateKeyPath) {
+        this.privateKeyPath = privateKeyPath;
     }
 
     public String getKid() {
