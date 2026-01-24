@@ -106,7 +106,7 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Security, LDAP, JWT (JWKS) and OAuth2 Resource Server -->
+        <!-- Security, Active Directory, JWT (JWKS) and OAuth2 Resource Server -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>

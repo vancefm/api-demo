@@ -9,7 +9,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.ldap.authentication.LdapAuthenticationProvider;
+import org.springframework.security.ldap.authentication.ad.ActiveDirectoryLdapAuthenticationProvider;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,13 +28,13 @@ public class SecurityConfig {
 
     private final JwtService jwtService;
     private final DbUserDetailsService dbUserDetailsService;
-    private final ObjectProvider<LdapAuthenticationProvider> ldapAuthenticationProvider;
+    private final ObjectProvider<ActiveDirectoryLdapAuthenticationProvider> activeDirectoryAuthenticationProvider;
     public SecurityConfig(JwtService jwtService,
                           DbUserDetailsService dbUserDetailsService,
-                          ObjectProvider<LdapAuthenticationProvider> ldapAuthenticationProvider) {
+                          ObjectProvider<ActiveDirectoryLdapAuthenticationProvider> activeDirectoryAuthenticationProvider) {
         this.jwtService = jwtService;
         this.dbUserDetailsService = dbUserDetailsService;
-        this.ldapAuthenticationProvider = ldapAuthenticationProvider;
+        this.activeDirectoryAuthenticationProvider = activeDirectoryAuthenticationProvider;
     }
 
     @Bean
@@ -73,10 +73,10 @@ public class SecurityConfig {
         daoProvider.setUserDetailsService(dbUserDetailsService);
         daoProvider.setPasswordEncoder(passwordEncoder);
 
-        // Provider order: LDAP first (if enabled), then DB fallback
-        LdapAuthenticationProvider ldapProvider = ldapAuthenticationProvider.getIfAvailable();
-        if (ldapProvider != null) {
-            return new ProviderManager(ldapProvider, daoProvider);
+        // Provider order: Active Directory first (if enabled), then DB fallback
+        ActiveDirectoryLdapAuthenticationProvider adProvider = activeDirectoryAuthenticationProvider.getIfAvailable();
+        if (adProvider != null) {
+            return new ProviderManager(adProvider, daoProvider);
         }
         return new ProviderManager(daoProvider);
     }

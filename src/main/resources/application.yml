@@ -259,13 +259,23 @@ app_config:
       default-expiry-days: 365
 
 security:
-  ldap:
+  active-directory:
     enabled: true
-    # LDAP/Active Directory connection URLs; prefer via environment variable
-    urls: ${LDAP_URLS:ldap://ad.example.com:389}
-    base-dn: ${LDAP_BASE_DN:DC=example,DC=com}
-    # Example: (sAMAccountName={0}) for AD; map to your directory schema
-    user-search-filter: ${LDAP_USER_SEARCH_FILTER:(sAMAccountName={0})}
+    # Active Directory connection URL; prefer via environment variable
+    url: ${AD_URL:ldap://ad.example.com:389}
+    # AD domain (used by the Active Directory auth provider)
+    domain: ${AD_DOMAIN:example.com}
+    # Root DN for directory searches
+    root-dn: ${AD_ROOT_DN:DC=example,DC=com}
+    # Use sAMAccountName as the identifier
+    user-search-filter: ${AD_USER_SEARCH_FILTER:(sAMAccountName={0})}
+    # Group search base (optional; empty = use root DN)
+    group-search-base: ${AD_GROUP_SEARCH_BASE:}
+    # Group search filter (AD group membership)
+    group-search-filter: ${AD_GROUP_SEARCH_FILTER:(member={0})}
+    # Optional bind account for group lookups
+    manager-dn: ${AD_MANAGER_DN:}
+    manager-password: ${AD_MANAGER_PASSWORD:}
 
   # JWT / JWKS settings
   jwt:

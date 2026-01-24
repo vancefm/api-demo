@@ -3,7 +3,7 @@
 This document summarizes the authentication and authorization design for the API Demo project.
 
 ## Overview
-- Authentication: Remote Active Directory (LDAP) for corporate users; MariaDB-backed internal admin accounts (BCrypt-hashed passwords) as a fallback.
+- Authentication: Remote Active Directory for corporate users; MariaDB-backed internal admin accounts (BCrypt-hashed passwords) as a fallback.
 - Tokens: JWTs signed with an RSA-4096 private key (RS512). The public key is exposed via JWKS at `/.well-known/jwks.json` for verification.
 - Gateway: Integrated Spring Cloud Gateway (same artifact) centralizes rate-limiting (per-instance), circuit breakers (Resilience4j), and response compression.
 - Persistent API tokens and session store: Stored in MariaDB using `api_tokens` and `sessions` tables.
@@ -22,7 +22,8 @@ This document summarizes the authentication and authorization design for the API
 
 ## Roles and JWT claims
 - When a user authenticates via `/api/v1/auth/login`, the issued JWT will include a `roles` claim: an array of role names assigned to the user (e.g., `["SUPER_ADMIN"]`).
-- The integrated gateway and downstream services may use the `roles` claim to perform authorization checks. Roles are derived from the `User`'s `role.name` in the database or from LDAP group mappings.
+- The integrated gateway and downstream services may use the `roles` claim to perform authorization checks. Roles are derived from the `User`'s `role.name` in the database or from Active Directory group mappings.
+- Active Directory uses `sAMAccountName` for login. Group memberships are mapped directly to roles, and when no groups are returned the user receives the `USER` role.
 
 ## Persistent API tokens
 - Persistent tokens allow service accounts or developers to obtain a static API token for non-interactive use.
@@ -39,7 +40,7 @@ This document summarizes the authentication and authorization design for the API
 - Internal admin accounts will store a BCrypt password hash in the database.
 - `security.password.bcrypt.strength` controls the BCrypt cost factor.
 - Risks: storing password hashes increases attack surface; ensure DB is encrypted at rest, use strong access controls, and provide password rotation/recovery procedures.
-- Alternatives: use LDAP-only admin accounts or an external identity provider.
+- Alternatives: use Active Directory-only admin accounts or an external identity provider.
 
 ## Token revocation and persistent tokens
 - Persistent API tokens are stored in `api_tokens` and checked during authentication to allow immediate revocation.
@@ -51,5 +52,5 @@ This document summarizes the authentication and authorization design for the API
 
 ## Deployment Notes
 - Ensure `security.jwt.private-key` value is provided at deploy time via keystore or secret manager.
-- Configure LDAP connection details via environment variables: `LDAP_URLS`, `LDAP_BASE_DN`, `LDAP_USER_SEARCH_FILTER`.
+- Configure Active Directory connection details via environment variables: `AD_URL`, `AD_DOMAIN`, `AD_ROOT_DN`, `AD_USER_SEARCH_FILTER`, `AD_GROUP_SEARCH_BASE`, `AD_GROUP_SEARCH_FILTER`, `AD_MANAGER_DN`, `AD_MANAGER_PASSWORD`.
 - Enable gateway features by setting `app.gateway.enabled=true` (default in this project).

@@ -735,7 +735,7 @@ Circuit breakers are essential when your API depends on external services:
 1. **Email Notifications**: Email server down → fail fast, log locally instead of timeout
 2. **Database Connection Pool**: Database slow/unavailable → return graceful error with empty results
 3. **External APIs**: Third-party service unavailable → return default response
-4. **LDAP/Active Directory**: Auth service down → use local authentication fallback
+4. **Active Directory**: Auth service down → use local authentication fallback
 5. **Message Queues**: Queue service unavailable → store locally and retry
 
 **In this project**, circuit breakers protect:
@@ -1668,9 +1668,11 @@ This API implements a comprehensive, database-driven Role-Based Access Control (
 
 The RBAC system provides three layers of security:
 
-1. **Authentication**: Validate user identity (LDAP or API tokens)
+1. **Authentication**: Validate user identity (Active Directory or API tokens)
 2. **Object-Level Authorization**: Control which resources users can access
 3. **Field-Level Authorization**: Control which fields users can read and write
+
+Active Directory authentication uses `sAMAccountName` for login. AD group memberships map directly to roles, and users with no group membership receive the `USER` role.
 
 ### Key Features
 
@@ -1710,7 +1712,7 @@ keystore or secret manager and avoid storing private keys in `application.yml`.
        ▼
 ┌──────────────────────┐
 │ Authentication Layer │ ← Validate user identity
-│  (Future: LDAP/JWT)  │
+│  (Active Directory/JWT)  │
 └──────────┬───────────┘
            │
            ▼
@@ -2177,7 +2179,7 @@ POST /api/v1/admin/cache/reload
 3. **Field-Level Security**: Always define field permissions explicitly
 4. **Cache Management**: Reload cache after permission changes
 5. **Audit Logging**: Log all permission changes (future enhancement)
-6. **Authentication**: Integrate with LDAP or JWT in production
+6. **Authentication**: Integrate with Active Directory or JWT in production
 7. **API Protection**: Restrict admin endpoints to trusted networks
 8. **Database Backups**: Regular backups of roles/permissions tables
 9. **Testing**: Test permission changes in staging before production
@@ -2277,7 +2279,7 @@ POST /api/v1/admin/cache/reload
 ### Future Enhancements
 
 - Integrate with Spring Security for authentication
-- Add LDAP/Active Directory integration
+- Add Active Directory integration
 - Implement JWT token-based authentication
 - Add audit logging for all permission checks
 - Add UI for role/permission management
@@ -2291,12 +2293,12 @@ POST /api/v1/admin/cache/reload
 - Implement distributed rate limiting with Redis
 - Add caching layer (Redis) for frequently accessed data
 - Implement audit logging for all operations
-- Integrate Spring Security with LDAP/JWT authentication
+- ~~Integrate Spring Security with Active Directory/JWT authentication~~ ✅ **IMPLEMENTED: Active Directory + JWT auth**
 - Implement soft deletes for data recovery
 - Create analytics and reporting endpoints
 - Add request/response encryption for sensitive data
 - Implement distributed tracing with OpenTelemetry (successor to Spring Cloud Sleuth)
-- Add custom metrics collection (Micrometer)
+- ~~Add custom metrics collection (Micrometer)~~ ✅ **IMPLEMENTED: Custom metrics via Micrometer**
 - Implement database-level auditing and change tracking
 - Flyway database migration
 
