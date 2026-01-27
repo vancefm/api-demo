@@ -36,6 +36,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.passwordEncoder = passwordEncoder;
     }
 
+    /**
+     * Extracts the Bearer token from the Authorization header and attempts authentication.
+     *
+     * <p>Flow:</p>
+     * <ol>
+     *   <li>If the token validates as a JWT, parse the subject and set authentication.</li>
+     *   <li>If JWT validation fails, attempt the persistent token format (tokenId.secret).</li>
+     *   <li>For persistent tokens, verify hash + expiry, then authenticate as the owner user.</li>
+     * </ol>
+     *
+     * <p>No authorities are added for JWTs here; API tokens use the owner's role.</p>
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         String header = request.getHeader("Authorization");
