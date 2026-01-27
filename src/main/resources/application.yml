@@ -290,8 +290,12 @@ security:
     # The raw `private-key` field must remain blank in source-controlled config.
     private-key: "" # not used when using private-key-path
 
-    # ID for the key (kid) and signing algorithm
+    # Key identifier (kid) included in JWT header; helps verifiers select the
+    # correct public key during key rotation.
     kid: auth-server-key-1
+
+    # Signing algorithm for JWTs (matches the RSA key type); must align with
+    # the verifier configuration (e.g., RS512 for RSA SHA-512).
     alg: RS512
 
     # Token TTL (ISO-8601 duration). Default 2 hours.

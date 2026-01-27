@@ -70,6 +70,7 @@ public class JwtService {
         String keySource = props.getKeySource();
 
         if ("keystore".equalsIgnoreCase(keySource)) {
+            // Primary option: load from PKCS#12 keystore when configured
             String ksPath = env.getProperty("SECURITY_JWT_KEYSTORE_PATH");
             String ksPassword = env.getProperty("SECURITY_JWT_KEYSTORE_PASSWORD");
             String keyAlias = env.getProperty("SECURITY_JWT_KEY_ALIAS", props.getKid());
@@ -77,10 +78,12 @@ public class JwtService {
                 try (InputStream is = java.nio.file.Files.newInputStream(java.nio.file.Path.of(ksPath))) {
                     KeyStore ks = KeyStore.getInstance("PKCS12");
                     ks.load(is, ksPassword.toCharArray());
+                    // Read the private key entry using the keystore password protection
                     KeyStore.PrivateKeyEntry entry = (KeyStore.PrivateKeyEntry) ks.getEntry(keyAlias, new KeyStore.PasswordProtection(ksPassword.toCharArray()));
                     PrivateKey priv = entry.getPrivateKey();
                     RSAPrivateKey rsaPriv = (RSAPrivateKey) priv;
                     RSAPublicKey rsaPub = (RSAPublicKey) entry.getCertificate().getPublicKey();
+                    // Enforce minimum strength and build JWK for signing/verification
                     validateKeySize(rsaPub);
                     rsaJwk = new RSAKey.Builder(rsaPub).privateKey(rsaPriv).keyID(props.getKid()).build();
                     return;
@@ -91,6 +94,7 @@ public class JwtService {
         // Try environment PEM variable (PKCS#8 PEM)
         String pem = env.getProperty("SECURITY_JWT_PRIVATE_KEY");
         if (pem != null && !pem.isBlank()) {
+            // Secondary option: parse PKCS#8 PEM from environment variable
             RSAPrivateKey priv = parsePkcs8Pem(pem);
             RSAPublicKey pub = derivePublicKey(priv);
             validateKeySize(pub);
@@ -103,6 +107,7 @@ public class JwtService {
             pemPath = props.getPrivateKeyPath();
         }
         if (pemPath != null && !pemPath.isBlank()) {
+            // Tertiary option: read PEM from configured file path
             java.nio.file.Path path = java.nio.file.Path.of(pemPath);
             if (java.nio.file.Files.exists(path)) {
                 String filePem = java.nio.file.Files.readString(path, StandardCharsets.UTF_8);
