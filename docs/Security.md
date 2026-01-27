@@ -21,9 +21,9 @@ This document summarizes the authentication and authorization design for the API
 - JWKS contains public key material only (no private key exposure).
 
 ## Roles and JWT claims
-- When a user authenticates via `/api/v1/auth/login`, the issued JWT will include a `roles` claim: an array of role names assigned to the user (e.g., `["SUPER_ADMIN"]`).
+- When a user authenticates via `/api/v1/auth/login`, the issued JWT will include a `roles` claim: an array of role names assigned to the user (e.g., `["MY_APP_SUPERADMIN"]`).
 - The integrated gateway and downstream services may use the `roles` claim to perform authorization checks. Roles are derived from the `User`'s `role.name` in the database or from Active Directory group mappings.
-- Active Directory uses `sAMAccountName` for login. Group memberships are mapped directly to roles, and when no groups are returned the user receives the `USER` role.
+- Active Directory uses `sAMAccountName` for login. Group memberships are mapped directly to roles, and when no groups are returned the user receives the `MY_APP_USER` role.
 
 ## Persistent API tokens
 - Persistent tokens allow service accounts or developers to obtain a static API token for non-interactive use.

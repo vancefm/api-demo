@@ -49,8 +49,9 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
+                // Public endpoints: auth + JWKS for JWT verification + docs/health
                 .requestMatchers("/api/v1/auth/**", "/.well-known/jwks.json", "/swagger-ui.html", "/v3/api-docs/**", "/actuator/**").permitAll()
-                .requestMatchers("/api/v1/admin/**").hasRole("SUPER_ADMIN")
+                .requestMatchers("/api/v1/admin/**").hasRole("MY_APP_SUPERADMIN")
                 .anyRequest().authenticated()
             )
             .httpBasic(Customizer.withDefaults());
@@ -61,6 +62,10 @@ public class SecurityConfig {
     }
 
     @Bean
+    /**
+     * Builds the JWT authentication filter that validates Bearer tokens and
+     * establishes the Spring Security context for authenticated requests.
+     */
     public JwtAuthenticationFilter jwtAuthenticationFilter(PasswordEncoder passwordEncoder,
                                                            ApiTokenRepository apiTokenRepository,
                                                            UserRepository userRepository) {

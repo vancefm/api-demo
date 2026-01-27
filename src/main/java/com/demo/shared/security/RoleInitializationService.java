@@ -50,20 +50,20 @@ public class RoleInitializationService {
         logger.info("Initializing default roles and permissions");
         
         // Create default roles if they don't exist
-        Role superAdmin = createRoleIfNotExists("SUPER_ADMIN", 
+        Role superAdmin = createRoleIfNotExists("MY_APP_SUPERADMIN", 
             "Full system access with all permissions");
-        Role admin = createRoleIfNotExists("ADMIN", 
+        Role admin = createRoleIfNotExists("MY_APP_ADMIN", 
             "Department-scoped access with limited field modifications");
-        Role user = createRoleIfNotExists("USER", 
+        Role user = createRoleIfNotExists("MY_APP_USER", 
             "Access to own resources only, cannot modify sensitive fields");
         
-        // Create ComputerSystem permissions for SUPER_ADMIN
+        // Create ComputerSystem permissions for MY_APP_SUPERADMIN
         createComputerSystemPermissionsForSuperAdmin(superAdmin);
         
-        // Create ComputerSystem permissions for ADMIN
+        // Create ComputerSystem permissions for MY_APP_ADMIN
         createComputerSystemPermissionsForAdmin(admin);
         
-        // Create ComputerSystem permissions for USER
+        // Create ComputerSystem permissions for MY_APP_USER
         createComputerSystemPermissionsForUser(user);
         
         // Reload cache

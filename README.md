@@ -116,9 +116,9 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
       - [Role\_Permissions Table (Junction)](#role_permissions-table-junction)
       - [Users Table](#users-table)
     - [Default Roles](#default-roles)
-      - [SUPER\_ADMIN](#super_admin)
-      - [ADMIN](#admin)
-      - [USER](#user)
+      - [MY\_APP\_SUPERADMIN](#my_app_superadmin)
+      - [MY\_APP\_ADMIN](#my_app_admin)
+      - [MY\_APP\_USER](#my_app_user)
     - [Field Permission Configuration](#field-permission-configuration)
     - [Admin APIs](#admin-apis)
       - [Role Management](#role-management)
@@ -1793,19 +1793,19 @@ CREATE TABLE users (
 
 Three default roles are created on application startup:
 
-#### SUPER_ADMIN
+#### MY_APP_SUPERADMIN
 - **Scope**: ALL
 - **Permissions**: Full access to all fields
 - **Use Case**: System administrators
 
-#### ADMIN
+#### MY_APP_ADMIN
 - **Scope**: DEPARTMENT
 - **Permissions**: 
   - Can read all fields in their department
   - Cannot modify: systemUser, department, networkName
 - **Use Case**: Department managers
 
-#### USER
+#### MY_APP_USER
 - **Scope**: OWN
 - **Permissions**:
   - Can read all fields of their own resources

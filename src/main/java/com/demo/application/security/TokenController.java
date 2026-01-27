@@ -21,7 +21,7 @@ public class TokenController {
     }
 
     @PostMapping
-    @org.springframework.security.access.prepost.PreAuthorize("hasRole('SUPER_ADMIN')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('MY_APP_SUPERADMIN')")
     public ResponseEntity<?> createToken(@RequestParam Long ownerUserId, @RequestParam(required = false) String scopes) {
         var resp = apiTokenService.createToken(ownerUserId, scopes, null);
         return ResponseEntity.ok(Map.of(
@@ -31,7 +31,7 @@ public class TokenController {
     }
 
     @GetMapping
-    @org.springframework.security.access.prepost.PreAuthorize("hasRole('SUPER_ADMIN')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('MY_APP_SUPERADMIN')")
     public ResponseEntity<List<ApiToken>> listTokens(@RequestParam Long ownerUserId) {
         List<ApiToken> all = apiTokenRepository.findAll();
         // Do not expose tokenHash in API responses in production. This listing is for admin use.
@@ -40,7 +40,7 @@ public class TokenController {
     }
 
     @DeleteMapping("/{tokenId}")
-    @org.springframework.security.access.prepost.PreAuthorize("hasRole('SUPER_ADMIN')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('MY_APP_SUPERADMIN')")
     public ResponseEntity<Void> revoke(@PathVariable String tokenId) {
         apiTokenRepository.findByTokenId(tokenId).ifPresent(t -> {
             t.setRevoked(true);

@@ -80,8 +80,8 @@ public class ActiveDirectoryConfig {
         provider.setAuthoritiesPopulator(populator);
         provider.setAuthoritiesMapper(authorities -> {
             if (authorities == null || authorities.isEmpty()) {
-                // AD-authenticated users with no groups receive the AppUser role.
-                return List.of(new SimpleGrantedAuthority("ROLE_USER"));
+                // AD-authenticated users with no groups receive the MY_APP_USER role.
+                return List.of(new SimpleGrantedAuthority("ROLE_MY_APP_USER"));
             }
             return new ArrayList<>(authorities);
         });

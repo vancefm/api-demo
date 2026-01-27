@@ -19,6 +19,10 @@ import java.io.IOException;
 import java.util.Collections;
 import java.time.LocalDateTime;
 
+/**
+ * Validates Bearer JWTs and establishes authentication in the security context.
+ * Falls back to persistent API tokens when JWT validation fails.
+ */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final ApiTokenRepository apiTokenRepository;
@@ -38,7 +42,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
             if (jwtService.validateToken(token)) {
-                // Use subject claim as principal when available
+            // JWT path: use subject claim as principal when available
                 String principal = token;
                 try {
                     SignedJWT jwt = SignedJWT.parse(token);
@@ -47,12 +51,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     }
                 } catch (Exception ignored) { }
 
+                // JWTs do not embed authorities in this filter; downstream services use roles claim if needed
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, Collections.emptyList());
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }
             else {
-                // Try persistent API token format: tokenId.secret
+                // Fallback: persistent API token format (tokenId.secret)
                 if (token.contains(".")) {
                     String[] parts = token.split("\\.", 2);
                     if (parts.length == 2) {

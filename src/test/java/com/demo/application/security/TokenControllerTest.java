@@ -1,10 +1,8 @@
 package com.demo.application.security;
 
-import com.demo.application.security.token.ApiTokenRepository;
 import com.demo.domain.security.Role;
 import com.demo.domain.user.User;
 import com.demo.application.user.UserRepository;
-import com.demo.application.security.RoleRepository;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,12 +32,12 @@ public class TokenControllerTest {
     private com.demo.application.security.token.ApiTokenRepository apiTokenRepository;
 
     @Test
-    @WithMockUser(roles = {"SUPER_ADMIN"})
+    @WithMockUser(roles = {"MY_APP_SUPERADMIN"})
     public void createTokenAsAdmin() throws Exception {
-        Role role = roleRepository.findByName("USER")
+        Role role = roleRepository.findByName("MY_APP_USER")
                 .orElseGet(() -> {
                     Role r = new Role();
-                    r.setName("USER");
+                    r.setName("MY_APP_USER");
                     return roleRepository.save(r);
                 });
 

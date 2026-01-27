@@ -29,7 +29,7 @@ public class UserDto {
     @Schema(description = "Role ID", example = "1")
     private Long roleId;
     
-    @Schema(description = "Role name (read-only)", example = "USER")
+    @Schema(description = "Role name (read-only)", example = "MY_APP_USER")
     private String roleName;
     
     // Constructors

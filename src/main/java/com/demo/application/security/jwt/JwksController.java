@@ -6,6 +6,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Exposes the public JWKS endpoint used by clients/gateways to verify JWT signatures.
+ */
 @RestController
 @RequestMapping("/.well-known")
 public class JwksController {
@@ -15,6 +18,9 @@ public class JwksController {
         this.jwtService = jwtService;
     }
 
+    /**
+     * Returns the public JWK set (JSON) for JWT signature verification.
+     */
     @GetMapping("/jwks.json")
     public ResponseEntity<String> jwks() {
         JWKSet set = jwtService.getPublicJwkSet();

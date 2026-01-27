@@ -33,6 +33,13 @@ import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 // note: BouncyCastle ASN.1 classes referenced via fully-qualified names to avoid import name collisions
 
+/**
+ * Service for issuing and validating JWTs and exposing the public JWKS.
+ *
+ * <p>Key material is loaded once on startup from one of the supported sources
+ * (keystore, PEM env var, or PEM file). The public key is exposed via JWKS so
+ * gateways and clients can verify JWT signatures without needing the private key.</p>
+ */
 @Service
 public class JwtService {
     private final JwtProperties props;
@@ -49,6 +56,16 @@ public class JwtService {
         }
     }
 
+    /**
+     * Loads RSA signing keys from one of the supported sources in priority order:
+     * <ol>
+     *   <li>PKCS#12 keystore (env: SECURITY_JWT_KEYSTORE_PATH/PASSWORD/KEY_ALIAS)</li>
+     *   <li>PKCS#8 PEM value (env: SECURITY_JWT_PRIVATE_KEY)</li>
+     *   <li>PEM file path (env: JWT_PRIVATE_KEY_PATH or app property)</li>
+     * </ol>
+     *
+     * <p>Enforces RSA-4096 minimum and builds an RSA JWK for signing/verification.</p>
+     */
     private void loadKeyMaterial() throws Exception {
         String keySource = props.getKeySource();
 
@@ -159,6 +176,14 @@ public class JwtService {
         throw new IllegalStateException("Cannot derive public key; provide keystore or a certificate alongside the private key.");
     }
 
+    /**
+     * Creates a signed JWT for the given subject using the configured RSA key.
+     *
+     * <p>Includes standard claims (sub, iat, exp, jti) and merges in configured
+     * static claims plus any extra claims provided at call time.</p>
+     *
+     * <p>If no signing key is configured (dev fallback), returns a random UUID instead.</p>
+     */
     public String createToken(String subject, Map<String, Object> extraClaims) {
         if (rsaJwk == null) {
             // Development fallback: return UUID token when no key configured (insecure)
@@ -194,6 +219,10 @@ public class JwtService {
         }
     }
 
+    /**
+     * Validates a JWT by verifying the RSA signature and expiration timestamp.
+     * Returns false on any parse or verification error.
+     */
     public boolean validateToken(String token) {
         if (rsaJwk == null) {
             return token != null && !token.isBlank();
@@ -210,6 +239,10 @@ public class JwtService {
         }
     }
 
+    /**
+     * Returns the public JWK set used by clients to verify JWT signatures.
+     * If no key is configured, the set is empty.
+     */
     public JWKSet getPublicJwkSet() {
         if (rsaJwk != null) {
             return new JWKSet(rsaJwk.toPublicJWK());
