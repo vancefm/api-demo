@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(ComputerSystemController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@WithMockUser
+@WithMockUser(roles = "MY_APP_USER")
 class ComputerSystemControllerTest {
 
     @Autowired
