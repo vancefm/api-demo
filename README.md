@@ -116,9 +116,9 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
       - [Role\_Permissions Table (Junction)](#role_permissions-table-junction)
       - [Users Table](#users-table)
     - [Default Roles](#default-roles)
-      - [SUPER\_ADMIN](#super_admin)
-      - [ADMIN](#admin)
-      - [USER](#user)
+      - [MY\_APP\_SUPERADMIN](#my_app_superadmin)
+      - [MY\_APP\_ADMIN](#my_app_admin)
+      - [MY\_APP\_USER](#my_app_user)
     - [Field Permission Configuration](#field-permission-configuration)
     - [Admin APIs](#admin-apis)
       - [Role Management](#role-management)
@@ -406,12 +406,15 @@ mvn test jacoco:report
 ```
 
 Test Summary:
-- **Total Tests**: 40 (all passing ✅)
+- **Total Tests**: 56 (all passing ✅)
 - **Repository Tests**: 7 (Data access layer - `@DataJpaTest`)
 - **Service Tests**: 10 (Business logic - mocked dependencies)
 - **Controller Tests**: 7 (REST endpoints - mocked services)
 - **Integration Tests**: 6 (Full application - real database with `@Transactional`)
 - **Batch Controller Tests**: 10 (Batch operations)
+- **LDAP Authentication Tests**: 6 (Embedded LDAP authentication and role mapping)
+- **LDAP Integration Tests**: 8 (End-to-end login flow and access control with embedded LDAP)
+- **Security Token Tests**: 2 (Token creation and controller tests)
 
 ### Test Architecture
 
@@ -460,6 +463,17 @@ class ComputerSystemIntegrationTest {
     } // ← After test: automatic ROLLBACK
 }
 ```
+
+#### 5. LDAP Authentication Tests (`@SpringBootTest` + `@Import`)
+- **Purpose**: Verify embedded LDAP authentication and LDAP group → application role mapping
+- **LDAP Server**: Embedded UnboundID in-memory LDAP server started by `EmbeddedLdapTestConfig`
+- **Users**: Seeded from `test-ldap-users.ldif` (`user1`, `user2`, `admin1`, `superadmin1`)
+- **Key Assertions**: Correct roles assigned per group membership, dual-group membership (admin1), bad credentials rejected
+
+#### 6. LDAP Integration Tests (`@SpringBootTest` + `@AutoConfigureMockMvc` + `@Import`)
+- **Purpose**: End-to-end HTTP tests of login flow and endpoint access control using LDAP credentials
+- **Security Filters**: Enabled (no `addFilters=false`)
+- **Key Assertions**: Login returns JWT, invalid credentials return 401, regular users cannot access admin endpoints, super-admins can access admin endpoints
 
 ### Configuration
 
@@ -735,7 +749,7 @@ Circuit breakers are essential when your API depends on external services:
 1. **Email Notifications**: Email server down → fail fast, log locally instead of timeout
 2. **Database Connection Pool**: Database slow/unavailable → return graceful error with empty results
 3. **External APIs**: Third-party service unavailable → return default response
-4. **LDAP/Active Directory**: Auth service down → use local authentication fallback
+4. **Active Directory / LDAP**: Auth service down → use local authentication fallback
 5. **Message Queues**: Queue service unavailable → store locally and retry
 
 **In this project**, circuit breakers protect:
@@ -1668,9 +1682,21 @@ This API implements a comprehensive, database-driven Role-Based Access Control (
 
 The RBAC system provides three layers of security:
 
-1. **Authentication**: Validate user identity (LDAP or API tokens)
+1. **Authentication**: Validate user identity (Active Directory, LDAP, or API tokens)
 2. **Object-Level Authorization**: Control which resources users can access
 3. **Field-Level Authorization**: Control which fields users can read and write
+
+Active Directory authentication uses `sAMAccountName` for login. AD group memberships map directly to roles, and users with no group membership receive the `USER` role.
+
+For testing and local development, an **embedded LDAP server** (UnboundID) provides authentication without requiring external infrastructure. LDAP groups are mapped to application roles:
+
+| LDAP Group | Application Role |
+|---|---|
+| `GroupA-Users` | `ROLE_MY_APP_USER` |
+| `GroupB-Admins` | `ROLE_MY_APP_ADMIN` |
+| `GroupC-SuperAdmins` | `ROLE_MY_APP_SUPERADMIN` |
+
+Test users: `user1`/`password1`, `user2`/`password2` (Users), `admin1`/`admin123` (Users + Admins), `superadmin1`/`super123` (SuperAdmins).
 
 ### Key Features
 
@@ -1680,6 +1706,25 @@ The RBAC system provides three layers of security:
 ✅ **Immutable & Read-Only Fields**: System-enforced field restrictions  
 ✅ **Zero-Code-Redeployment**: Changes take effect immediately via cache reload  
 ✅ **Permission Caching**: High-performance with in-memory caching  
+
+### PEM Keys & BouncyCastle
+
+- The authentication subsystem supports RSA private keys provided as PEM files.
+- Supported PEM formats: PKCS#8 (`-----BEGIN PRIVATE KEY-----`) and PKCS#1
+  (`-----BEGIN RSA PRIVATE KEY-----`). The code accepts either format and will
+  convert PKCS#1 to a Java-compatible key at startup.
+- We include the `bcprov-jdk15on` (BouncyCastle) dependency to parse/convert
+  PEM files during application initialization. This avoids requiring offline
+  key conversion during development and makes local testing simpler.
+- If you prefer not to include BouncyCastle, convert keys to PKCS#8 with OpenSSL:
+
+```bash
+openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in examplejwtkey.pem -out examplejwtkey-pk8.pem
+```
+
+Add the resulting PKCS#8 PEM path to `security.jwt.private-key-path` or set
+`JWT_PRIVATE_KEY_PATH` in the environment. In production, use a secure
+keystore or secret manager and avoid storing private keys in `application.yml`.
 
 ### Architecture & Flow
 
@@ -1691,7 +1736,7 @@ The RBAC system provides three layers of security:
        ▼
 ┌──────────────────────┐
 │ Authentication Layer │ ← Validate user identity
-│  (Future: LDAP/JWT)  │
+│ (LDAP/Active Directory/JWT) │
 └──────────┬───────────┘
            │
            ▼
@@ -1772,19 +1817,19 @@ CREATE TABLE users (
 
 Three default roles are created on application startup:
 
-#### SUPER_ADMIN
+#### MY_APP_SUPERADMIN
 - **Scope**: ALL
 - **Permissions**: Full access to all fields
 - **Use Case**: System administrators
 
-#### ADMIN
+#### MY_APP_ADMIN
 - **Scope**: DEPARTMENT
 - **Permissions**: 
   - Can read all fields in their department
   - Cannot modify: systemUser, department, networkName
 - **Use Case**: Department managers
 
-#### USER
+#### MY_APP_USER
 - **Scope**: OWN
 - **Permissions**:
   - Can read all fields of their own resources
@@ -1856,7 +1901,10 @@ application/
 │   ├── PermissionRepository.java
 │   ├── RolePermissionRepository.java
 │   ├── RoleManagementService.java
-│   └── RoleManagementController.java
+│   ├── RoleManagementController.java
+│   ├── EmbeddedLdapTestConfig.java   // Test-only: embedded LDAP server config
+│   ├── EmbeddedLdapAuthenticationTest.java  // LDAP auth unit tests
+│   └── LdapIntegrationTest.java      // LDAP integration tests
 └── batch/
     └── BatchComputerSystemController.java
 ```
@@ -2158,7 +2206,7 @@ POST /api/v1/admin/cache/reload
 3. **Field-Level Security**: Always define field permissions explicitly
 4. **Cache Management**: Reload cache after permission changes
 5. **Audit Logging**: Log all permission changes (future enhancement)
-6. **Authentication**: Integrate with LDAP or JWT in production
+6. **Authentication**: Integrate with Active Directory or JWT in production; use embedded LDAP for testing
 7. **API Protection**: Restrict admin endpoints to trusted networks
 8. **Database Backups**: Regular backups of roles/permissions tables
 9. **Testing**: Test permission changes in staging before production
@@ -2258,7 +2306,7 @@ POST /api/v1/admin/cache/reload
 ### Future Enhancements
 
 - Integrate with Spring Security for authentication
-- Add LDAP/Active Directory integration
+- Add Active Directory integration
 - Implement JWT token-based authentication
 - Add audit logging for all permission checks
 - Add UI for role/permission management
@@ -2272,12 +2320,12 @@ POST /api/v1/admin/cache/reload
 - Implement distributed rate limiting with Redis
 - Add caching layer (Redis) for frequently accessed data
 - Implement audit logging for all operations
-- Integrate Spring Security with LDAP/JWT authentication
+- ~~Integrate Spring Security with Active Directory/JWT authentication~~ ✅ **IMPLEMENTED: Active Directory + JWT auth**
 - Implement soft deletes for data recovery
 - Create analytics and reporting endpoints
 - Add request/response encryption for sensitive data
 - Implement distributed tracing with OpenTelemetry (successor to Spring Cloud Sleuth)
-- Add custom metrics collection (Micrometer)
+- ~~Add custom metrics collection (Micrometer)~~ ✅ **IMPLEMENTED: Custom metrics via Micrometer**
 - Implement database-level auditing and change tracking
 - Flyway database migration
 

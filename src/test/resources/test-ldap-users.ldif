@@ -1,0 +1,74 @@
+dn: dc=demo,dc=com
+objectClass: top
+objectClass: domain
+dc: demo
+
+dn: ou=people,dc=demo,dc=com
+objectClass: top
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=groups,dc=demo,dc=com
+objectClass: top
+objectClass: organizationalUnit
+ou: groups
+
+dn: uid=user1,ou=people,dc=demo,dc=com
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: user1
+cn: User One
+sn: One
+userPassword: password1
+
+dn: uid=user2,ou=people,dc=demo,dc=com
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: user2
+cn: User Two
+sn: Two
+userPassword: password2
+
+dn: uid=admin1,ou=people,dc=demo,dc=com
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: admin1
+cn: Admin One
+sn: AdminOne
+userPassword: admin123
+
+dn: uid=superadmin1,ou=people,dc=demo,dc=com
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: superadmin1
+cn: Super Admin One
+sn: SuperAdminOne
+userPassword: super123
+
+dn: cn=GroupA-Users,ou=groups,dc=demo,dc=com
+objectClass: top
+objectClass: groupOfNames
+cn: GroupA-Users
+member: uid=user1,ou=people,dc=demo,dc=com
+member: uid=user2,ou=people,dc=demo,dc=com
+member: uid=admin1,ou=people,dc=demo,dc=com
+
+dn: cn=GroupB-Admins,ou=groups,dc=demo,dc=com
+objectClass: top
+objectClass: groupOfNames
+cn: GroupB-Admins
+member: uid=admin1,ou=people,dc=demo,dc=com
+
+dn: cn=GroupC-SuperAdmins,ou=groups,dc=demo,dc=com
+objectClass: top
+objectClass: groupOfNames
+cn: GroupC-SuperAdmins
+member: uid=superadmin1,ou=people,dc=demo,dc=com

@@ -11,7 +11,7 @@ import org.springframework.data.domain.PageRequest;
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
-class ComputerSystemRepositoryTest {
+class ComputerSystemRepositoryIT {
 
     @Autowired
     private ComputerSystemRepository repository;

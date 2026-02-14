@@ -244,3 +244,100 @@ springdoc:
     enabled: true
   api-docs:
     path: /v3/api-docs
+
+# ============================================================================
+# AUTHENTICATION & JWT / JWKS CONFIGURATION
+# ============================================================================
+app_config:
+  gateway:
+    # When true the integrated Spring Cloud Gateway will own rate-limiting,
+    # circuit breakers and compression. Set false to use app-level interceptors.
+    enabled: true
+  auth:
+    persistent-tokens:
+      enabled: true
+      default-expiry-days: 365
+
+security:
+  active-directory:
+    enabled: true
+    # Active Directory connection URL; prefer via environment variable
+    url: ${AD_URL:ldap://ad.example.com:389}
+    # AD domain (used by the Active Directory auth provider)
+    domain: ${AD_DOMAIN:example.com}
+    # Root DN for directory searches
+    root-dn: ${AD_ROOT_DN:DC=example,DC=com}
+    # Use sAMAccountName as the identifier
+    user-search-filter: ${AD_USER_SEARCH_FILTER:(sAMAccountName={0})}
+    # Group search base (optional; empty = use root DN)
+    group-search-base: ${AD_GROUP_SEARCH_BASE:}
+    # Group search filter (AD group membership)
+    group-search-filter: ${AD_GROUP_SEARCH_FILTER:(member={0})}
+    # Optional bind account for group lookups
+    manager-dn: ${AD_MANAGER_DN:}
+    manager-password: ${AD_MANAGER_PASSWORD:}
+
+  # JWT / JWKS settings
+  jwt:
+    # Key source hint: keystore|env|filesystem (do NOT place private key plaintext here)
+    # This deployment uses a PEM file; set to 'filesystem' and provide the path.
+    key-source: filesystem
+    # Path to the PEM private key file (PKCS#8 PEM, RSA-4096). Prefer supplying
+    # via environment variable `JWT_PRIVATE_KEY_PATH`. Default points to examplejwtkey.pem
+    # placed at the project root for local testing.
+    private-key-path: ${JWT_PRIVATE_KEY_PATH:examplejwtkey.pem}
+    # PRIVATE KEY PLACEHOLDER (INTENTIONALLY BLANK)
+    # The raw `private-key` field must remain blank in source-controlled config.
+    private-key: "" # not used when using private-key-path
+
+    # Key identifier (kid) included in JWT header; helps verifiers select the
+    # correct public key during key rotation.
+    kid: auth-server-key-1
+
+    # Signing algorithm for JWTs (matches the RSA key type); must align with
+    # the verifier configuration (e.g., RS512 for RSA SHA-512).
+    alg: RS512
+
+    # Token TTL (ISO-8601 duration). Default 2 hours.
+    ttl: PT2H
+
+    # Configurable claims mapping; keys under this prefix will be copied into JWT claims
+    # Example: security.jwt.claims.issuer = https://auth.example.com
+    claims:
+      issuer: ${JWT_ISSUER:https://api.example.com}
+      audience: ${JWT_AUDIENCE:api-clients}
+
+  jwks:
+    # Path where the public JWK set is exposed for verification by the gateway
+    path: /.well-known/jwks.json
+
+  # BCrypt configuration for DB-stored admin passwords
+  password:
+    bcrypt:
+      # Strength (log rounds). Higher = slower to compute and more secure. Default 12.
+      strength: ${BCRYPT_STRENGTH:12}
+
+
+
+# NOTES:
+# - Private key must NOT be checked into source control or placed in application.yml.
+#   Use a keystore or environment/secret manager during deployment. Key size: RSA-4096.
+# - JWKS endpoint exposes ONLY public keys; safe to publish so the gateway and
+#   external services can verify tokens and support key rotation.
+
+# PEM key formats & local testing
+# - The application accepts PKCS#8 PEM (`-----BEGIN PRIVATE KEY-----`) and
+#   PKCS#1 RSA PEM (`-----BEGIN RSA PRIVATE KEY-----`). For convenience the
+#   startup parser will accept either format — BouncyCastle is used to parse
+#   and convert PKCS#1 into a Java-compatible key when needed.
+# - Production: prefer storing keys in a secure keystore or secret manager.
+# - Local conversion (if you prefer not to include BouncyCastle):
+#   Convert PKCS#1 -> PKCS#8 with OpenSSL:
+#
+#   ```bash
+#   openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in examplejwtkey.pem -out examplejwtkey-pk8.pem
+#   ```
+#
+# - Notes on dependency: `bcprov-jdk15on` is added to `pom.xml` solely to
+#   support flexible PEM parsing at startup; it is not used for runtime crypto
+#   operations beyond initial key material parsing.

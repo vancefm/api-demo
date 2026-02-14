@@ -22,9 +22,12 @@ import org.springframework.context.annotation.Configuration;
  *     max-items: 100
  *     timeout-seconds: 300
  *
- * Usage in controller:
- * @Autowired
- * private BatchProperties batchProperties;
+ * Usage in controller (constructor injection):
+ * private final BatchProperties batchProperties;
+ *
+ * public BatchComputerSystemController(BatchProperties batchProperties) {
+ *     this.batchProperties = batchProperties;
+ * }
  *
  * public void processBatch(List<?> items) {
  *     if (items.size() > batchProperties.getMaxItems()) {

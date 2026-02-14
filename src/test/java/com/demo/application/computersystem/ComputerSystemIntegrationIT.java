@@ -8,8 +8,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Objects;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -18,7 +21,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-class ComputerSystemIntegrationTest {
+@WithMockUser(roles = "MY_APP_USER")
+class ComputerSystemIntegrationIT {
 
     @Autowired
     private MockMvc mockMvc;
@@ -46,8 +50,8 @@ class ComputerSystemIntegrationTest {
     void testCreateAndRetrieveComputerSystem() throws Exception {
         // Create
         mockMvc.perform(post("/api/v1/computer-systems")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(testDto)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(testDto))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.hostname", is("SERVER-001")))
                 .andExpect(jsonPath("$.id", notNullValue()));
@@ -75,8 +79,8 @@ class ComputerSystemIntegrationTest {
                 .build();
 
         mockMvc.perform(post("/api/v1/computer-systems")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(uniqueDto)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(uniqueDto))))
                 .andExpect(status().isCreated());
 
         // Get all with pagination
@@ -108,8 +112,8 @@ class ComputerSystemIntegrationTest {
                 .build();
 
         mockMvc.perform(post("/api/v1/computer-systems")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(invalidDto)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(invalidDto))))
                 .andExpect(status().isBadRequest());
     }
 
@@ -135,8 +139,8 @@ class ComputerSystemIntegrationTest {
                 .build();
 
         mockMvc.perform(post("/api/v1/computer-systems")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(uniqueDto)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(uniqueDto))))
                 .andExpect(status().isCreated());
 
         // Get the created system
@@ -151,8 +155,8 @@ class ComputerSystemIntegrationTest {
         // Update
         createdDto.setUser("jane.doe");
         mockMvc.perform(put("/api/v1/computer-systems/" + createdDto.getId())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(createdDto)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(createdDto))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.user", is("jane.doe")));
     }
@@ -161,8 +165,8 @@ class ComputerSystemIntegrationTest {
     void testDeleteComputerSystem() throws Exception {
         // Create
         String responseBody = mockMvc.perform(post("/api/v1/computer-systems")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(testDto)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(testDto))))
                 .andExpect(status().isCreated())
                 .andReturn()
                 .getResponse()

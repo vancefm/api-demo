@@ -1,21 +1,23 @@
 package com.demo.application.computersystem;
 
 import com.demo.domain.computersystem.ComputerSystemDto;
-import com.demo.application.computersystem.ComputerSystemService;
 import com.demo.shared.service.EmailNotificationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Arrays;
+import java.util.Objects;
 
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -25,15 +27,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ComputerSystemController.class)
+@AutoConfigureMockMvc(addFilters = false)
+@WithMockUser(roles = "MY_APP_USER")
 class ComputerSystemControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private ComputerSystemService service;
 
-    @MockBean
+    @MockitoBean
     private EmailNotificationService emailNotificationService;
 
     @Autowired
@@ -61,8 +65,8 @@ class ComputerSystemControllerTest {
         when(service.createComputerSystem(any(ComputerSystemDto.class))).thenReturn(testDto);
 
         mockMvc.perform(post("/api/v1/computer-systems")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(testDto)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(testDto))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.hostname", is("SERVER-001")))
                 .andExpect(jsonPath("$.manufacturer", is("Dell")));
@@ -124,8 +128,8 @@ class ComputerSystemControllerTest {
         when(service.updateComputerSystem(eq(1L), any(ComputerSystemDto.class))).thenReturn(testDto);
 
         mockMvc.perform(put("/api/v1/computer-systems/1")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(testDto)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(testDto))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.hostname", is("SERVER-001")));
 

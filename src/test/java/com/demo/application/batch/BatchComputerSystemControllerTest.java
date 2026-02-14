@@ -6,18 +6,23 @@ import com.demo.domain.computersystem.ComputerSystemDto;
 import com.demo.application.computersystem.ComputerSystemService;
 import com.demo.shared.service.EmailNotificationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assertions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -37,18 +42,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * - Error scenarios (empty batch, size exceeded, validation failures)
  */
 @WebMvcTest(BatchComputerSystemController.class)
+@AutoConfigureMockMvc(addFilters = false)
+@WithMockUser
 class BatchComputerSystemControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private ComputerSystemService service;
 
-    @MockBean
+    @MockitoBean
     private EmailNotificationService emailNotificationService;
 
-    @MockBean
+    @MockitoBean
     private BatchProperties batchProperties;
 
     @Autowired
@@ -102,16 +109,16 @@ class BatchComputerSystemControllerTest {
 
         // Act & Assert
         mockMvc.perform(post("/api/v1/computer-systems/batch/create")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.totalItems", is(2)))
-                .andExpect(jsonPath("$.successCount", is(2)))
-                .andExpect(jsonPath("$.failureCount", is(0)))
-                .andExpect(jsonPath("$.status", is("SUCCESS")))
+                .andExpect(jsonPath("$.totalItems").value(2))
+                .andExpect(jsonPath("$.successCount").value(2))
+                .andExpect(jsonPath("$.failureCount").value(0))
+                .andExpect(jsonPath("$.status").value("SUCCESS"))
                 .andExpect(jsonPath("$.items", hasSize(2)))
-                .andExpect(jsonPath("$.items[0].hostname", is("SERVER-001")))
-                .andExpect(jsonPath("$.items[1].hostname", is("SERVER-002")));
+                .andExpect(jsonPath("$.items[0].hostname").value("SERVER-001"))
+                .andExpect(jsonPath("$.items[1].hostname").value("SERVER-002"));
 
         verify(service, times(2)).createComputerSystem(any());
     }
@@ -127,10 +134,10 @@ class BatchComputerSystemControllerTest {
 
         // Act & Assert
         mockMvc.perform(post("/api/v1/computer-systems/batch/create")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title", is("Request Validation Failed")));
+                .andExpect(jsonPath("$.title").value("Request Validation Failed"));
 
         verify(service, never()).createComputerSystem(any());
     }
@@ -149,10 +156,10 @@ class BatchComputerSystemControllerTest {
 
         // Act & Assert
         mockMvc.perform(post("/api/v1/computer-systems/batch/create")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title", is("Batch Size Exceeds Maximum")))
+                .andExpect(jsonPath("$.title").value("Batch Size Exceeds Maximum"))
                 .andExpect(jsonPath("$.detail", containsString("exceeds maximum (1)")));
 
         verify(service, never()).createComputerSystem(any());
@@ -181,8 +188,8 @@ class BatchComputerSystemControllerTest {
 
         // Act & Assert
         mockMvc.perform(post("/api/v1/computer-systems/batch/create")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail", containsString("items[0].hostname")));
 
@@ -205,15 +212,14 @@ class BatchComputerSystemControllerTest {
 
         // Act & Assert
         mockMvc.perform(put("/api/v1/computer-systems/batch/update")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalItems", is(2)))
-                .andExpect(jsonPath("$.successCount", is(2)))
-                .andExpect(jsonPath("$.status", is("SUCCESS")))
-                .andExpect(jsonPath("$.items[0].id", is(1)))
-                .andExpect(jsonPath("$.items[1].id", is(2)));
-
+                .andExpect(jsonPath("$.totalItems").value(2))
+                .andExpect(jsonPath("$.successCount").value(2))
+                .andExpect(jsonPath("$.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.items[0].id").value(1))
+                .andExpect(jsonPath("$.items[1].id").value(2));
         verify(service, times(2)).updateComputerSystem(any(Long.class), any());
     }
 
@@ -232,10 +238,10 @@ class BatchComputerSystemControllerTest {
 
         // Act & Assert
         mockMvc.perform(put("/api/v1/computer-systems/batch/update")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title", is("Batch Size Exceeds Maximum")));
+                .andExpect(jsonPath("$.title").value("Batch Size Exceeds Maximum"));
 
         // Verify no updates occurred (all-or-nothing: size exceeded = no updates)
         verify(service, never()).updateComputerSystem(any(Long.class), any());
@@ -258,8 +264,8 @@ class BatchComputerSystemControllerTest {
 
         // Act & Assert
         mockMvc.perform(delete("/api/v1/computer-systems/batch/delete")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isNoContent());
 
         // Verify all items were verified and deleted (two-phase approach)
@@ -278,8 +284,8 @@ class BatchComputerSystemControllerTest {
 
         // Act & Assert
         mockMvc.perform(delete("/api/v1/computer-systems/batch/delete")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isBadRequest());
 
         verify(service, never()).deleteComputerSystem(any());
@@ -300,10 +306,10 @@ class BatchComputerSystemControllerTest {
 
         // Act & Assert
         mockMvc.perform(delete("/api/v1/computer-systems/batch/delete")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title", is("Batch Size Exceeds Maximum")));
+                .andExpect(jsonPath("$.title").value("Batch Size Exceeds Maximum"));
 
         // Verify no deletions occurred (size exceeded = no deletes)
         verify(service, never()).getComputerSystemById(any());
@@ -320,9 +326,9 @@ class BatchComputerSystemControllerTest {
         when(batchProperties.getMaxItems()).thenReturn(50);
 
         int maxItems = batchProperties.getMaxItems();
-        assert maxItems == 50;
+        Assertions.assertEquals(50, maxItems);
 
         // Verify configuration bean is not null
-        assert batchProperties != null;
+        Assertions.assertNotNull(batchProperties);
     }
 }
