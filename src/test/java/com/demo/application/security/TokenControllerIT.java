@@ -51,7 +51,7 @@ public class TokenControllerIT {
         mockMvc.perform(post("/api/v1/tokens")
                 .param("ownerUserId", u.getId().toString())
                 .param("scopes", "read")
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED))
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE))
                 .andExpect(status().isOk());
 
         // repository should have an entry for owner

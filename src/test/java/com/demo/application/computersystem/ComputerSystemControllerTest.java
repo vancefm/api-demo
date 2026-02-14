@@ -17,6 +17,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Arrays;
+import java.util.Objects;
 
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -64,8 +65,8 @@ class ComputerSystemControllerTest {
         when(service.createComputerSystem(any(ComputerSystemDto.class))).thenReturn(testDto);
 
         mockMvc.perform(post("/api/v1/computer-systems")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(testDto)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(testDto))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.hostname", is("SERVER-001")))
                 .andExpect(jsonPath("$.manufacturer", is("Dell")));
@@ -127,8 +128,8 @@ class ComputerSystemControllerTest {
         when(service.updateComputerSystem(eq(1L), any(ComputerSystemDto.class))).thenReturn(testDto);
 
         mockMvc.perform(put("/api/v1/computer-systems/1")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(testDto)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(testDto))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.hostname", is("SERVER-001")));
 

@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Map;
+import java.util.Objects;
 
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -50,12 +51,10 @@ class LdapIntegrationIT {
 
     @Test
     void loginWithValidLdapCredentialsReturnsJwt() throws Exception {
-        String body = objectMapper.writeValueAsString(
-                Map.of("username", "user1", "password", "password1"));
-
         mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(
+                                Map.of("username", "user1", "password", "password1")))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.access_token", notNullValue()))
                 .andExpect(jsonPath("$.token_type", is("Bearer")));
@@ -63,23 +62,19 @@ class LdapIntegrationIT {
 
     @Test
     void loginWithInvalidPasswordReturns401() throws Exception {
-        String body = objectMapper.writeValueAsString(
-                Map.of("username", "user1", "password", "wrong"));
-
         mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(
+                                Map.of("username", "user1", "password", "wrong")))))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void loginWithUnknownUserReturns401() throws Exception {
-        String body = objectMapper.writeValueAsString(
-                Map.of("username", "nonexistent", "password", "password"));
-
         mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(
+                                Map.of("username", "nonexistent", "password", "password")))))
                 .andExpect(status().isUnauthorized());
     }
 
