@@ -3,7 +3,7 @@
 This document summarizes the authentication and authorization design for the API Demo project.
 
 ## Overview
-- Authentication: Remote Active Directory for corporate users; MariaDB-backed internal admin accounts (BCrypt-hashed passwords) as a fallback.
+- Authentication: Remote Active Directory for corporate users; MariaDB-backed internal admin accounts (BCrypt-hashed passwords) as a fallback; embedded LDAP (UnboundID) for local development and testing.
 - Tokens: JWTs signed with an RSA-4096 private key (RS512). The public key is exposed via JWKS at `/.well-known/jwks.json` for verification.
 - Gateway: Integrated Spring Cloud Gateway (same artifact) centralizes rate-limiting (per-instance), circuit breakers (Resilience4j), and response compression.
 - Persistent API tokens and session store: Stored in MariaDB using `api_tokens` and `sessions` tables.
@@ -22,8 +22,24 @@ This document summarizes the authentication and authorization design for the API
 
 ## Roles and JWT claims
 - When a user authenticates via `/api/v1/auth/login`, the issued JWT will include a `roles` claim: an array of role names assigned to the user (e.g., `["MY_APP_SUPERADMIN"]`).
-- The integrated gateway and downstream services may use the `roles` claim to perform authorization checks. Roles are derived from the `User`'s `role.name` in the database or from Active Directory group mappings.
+- The integrated gateway and downstream services may use the `roles` claim to perform authorization checks. Roles are derived from the `User`'s `role.name` in the database, from Active Directory group mappings, or from embedded LDAP group mappings.
 - Active Directory uses `sAMAccountName` for login. Group memberships are mapped directly to roles, and when no groups are returned the user receives the `MY_APP_USER` role.
+
+## Embedded LDAP (Test / Local Development)
+- An embedded UnboundID LDAP server is available for testing and local development. It is configured as a **test-scoped** dependency (`com.unboundid:unboundid-ldapsdk`).
+- The embedded server is started via `EmbeddedLdapTestConfig` (`@TestConfiguration`) and seeded from `src/test/resources/test-ldap-users.ldif`.
+- Base DN: `dc=demo,dc=com`. Users reside under `ou=people`, groups under `ou=groups`.
+- LDAP group → application role mapping:
+  - `GroupA-Users` → `ROLE_MY_APP_USER`
+  - `GroupB-Admins` → `ROLE_MY_APP_ADMIN`
+  - `GroupC-SuperAdmins` → `ROLE_MY_APP_SUPERADMIN`
+- Seeded test users:
+  - `user1` / `password1` — member of `GroupA-Users`
+  - `user2` / `password2` — member of `GroupA-Users`
+  - `admin1` / `admin123` — member of `GroupA-Users` and `GroupB-Admins`
+  - `superadmin1` / `super123` — member of `GroupC-SuperAdmins`
+- The `SecurityConfig` `AuthenticationManager` supports an optional `LdapAuthenticationProvider` via `ObjectProvider`. When the embedded LDAP test config is active, authentication follows the chain: LDAP → Active Directory (if enabled) → database fallback.
+- Active Directory is disabled during tests (`security.active-directory.enabled: false` in `src/test/resources/application.yml`).
 
 ## Persistent API tokens
 - Persistent tokens allow service accounts or developers to obtain a static API token for non-interactive use.
@@ -54,3 +70,4 @@ This document summarizes the authentication and authorization design for the API
 - Ensure `security.jwt.private-key` value is provided at deploy time via keystore or secret manager.
 - Configure Active Directory connection details via environment variables: `AD_URL`, `AD_DOMAIN`, `AD_ROOT_DN`, `AD_USER_SEARCH_FILTER`, `AD_GROUP_SEARCH_BASE`, `AD_GROUP_SEARCH_FILTER`, `AD_MANAGER_DN`, `AD_MANAGER_PASSWORD`.
 - Enable gateway features by setting `app.gateway.enabled=true` (default in this project).
+- The embedded LDAP server is **test-scoped only** and not available in production builds. Tests that import `EmbeddedLdapTestConfig` will start the server automatically; no external LDAP infrastructure is required for running the test suite.

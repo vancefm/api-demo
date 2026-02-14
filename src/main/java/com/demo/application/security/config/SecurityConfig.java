@@ -7,8 +7,10 @@ import com.demo.application.security.token.ApiTokenRepository;
 import com.demo.application.user.UserRepository;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.ldap.authentication.LdapAuthenticationProvider;
 import org.springframework.security.ldap.authentication.ad.ActiveDirectoryLdapAuthenticationProvider;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
@@ -21,6 +23,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -29,12 +34,16 @@ public class SecurityConfig {
     private final JwtService jwtService;
     private final DbUserDetailsService dbUserDetailsService;
     private final ObjectProvider<ActiveDirectoryLdapAuthenticationProvider> activeDirectoryAuthenticationProvider;
+    private final ObjectProvider<LdapAuthenticationProvider> ldapAuthenticationProvider;
+
     public SecurityConfig(JwtService jwtService,
                           DbUserDetailsService dbUserDetailsService,
-                          ObjectProvider<ActiveDirectoryLdapAuthenticationProvider> activeDirectoryAuthenticationProvider) {
+                          ObjectProvider<ActiveDirectoryLdapAuthenticationProvider> activeDirectoryAuthenticationProvider,
+                          ObjectProvider<LdapAuthenticationProvider> ldapAuthenticationProvider) {
         this.jwtService = jwtService;
         this.dbUserDetailsService = dbUserDetailsService;
         this.activeDirectoryAuthenticationProvider = activeDirectoryAuthenticationProvider;
+        this.ldapAuthenticationProvider = ldapAuthenticationProvider;
     }
 
     @Bean
@@ -78,11 +87,20 @@ public class SecurityConfig {
         daoProvider.setUserDetailsService(dbUserDetailsService);
         daoProvider.setPasswordEncoder(passwordEncoder);
 
-        // Provider order: Active Directory first (if enabled), then DB fallback
+        // Provider order: LDAP first (if available), then Active Directory (if enabled), then DB fallback
+        List<AuthenticationProvider> providers = new ArrayList<>();
+
+        LdapAuthenticationProvider ldapProvider = ldapAuthenticationProvider.getIfAvailable();
+        if (ldapProvider != null) {
+            providers.add(ldapProvider);
+        }
+
         ActiveDirectoryLdapAuthenticationProvider adProvider = activeDirectoryAuthenticationProvider.getIfAvailable();
         if (adProvider != null) {
-            return new ProviderManager(adProvider, daoProvider);
+            providers.add(adProvider);
         }
-        return new ProviderManager(daoProvider);
+
+        providers.add(daoProvider);
+        return new ProviderManager(providers);
     }
 }

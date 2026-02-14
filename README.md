@@ -406,12 +406,15 @@ mvn test jacoco:report
 ```
 
 Test Summary:
-- **Total Tests**: 40 (all passing ✅)
+- **Total Tests**: 56 (all passing ✅)
 - **Repository Tests**: 7 (Data access layer - `@DataJpaTest`)
 - **Service Tests**: 10 (Business logic - mocked dependencies)
 - **Controller Tests**: 7 (REST endpoints - mocked services)
 - **Integration Tests**: 6 (Full application - real database with `@Transactional`)
 - **Batch Controller Tests**: 10 (Batch operations)
+- **LDAP Authentication Tests**: 6 (Embedded LDAP authentication and role mapping)
+- **LDAP Integration Tests**: 8 (End-to-end login flow and access control with embedded LDAP)
+- **Security Token Tests**: 2 (Token creation and controller tests)
 
 ### Test Architecture
 
@@ -460,6 +463,17 @@ class ComputerSystemIntegrationTest {
     } // ← After test: automatic ROLLBACK
 }
 ```
+
+#### 5. LDAP Authentication Tests (`@SpringBootTest` + `@Import`)
+- **Purpose**: Verify embedded LDAP authentication and LDAP group → application role mapping
+- **LDAP Server**: Embedded UnboundID in-memory LDAP server started by `EmbeddedLdapTestConfig`
+- **Users**: Seeded from `test-ldap-users.ldif` (`user1`, `user2`, `admin1`, `superadmin1`)
+- **Key Assertions**: Correct roles assigned per group membership, dual-group membership (admin1), bad credentials rejected
+
+#### 6. LDAP Integration Tests (`@SpringBootTest` + `@AutoConfigureMockMvc` + `@Import`)
+- **Purpose**: End-to-end HTTP tests of login flow and endpoint access control using LDAP credentials
+- **Security Filters**: Enabled (no `addFilters=false`)
+- **Key Assertions**: Login returns JWT, invalid credentials return 401, regular users cannot access admin endpoints, super-admins can access admin endpoints
 
 ### Configuration
 
@@ -735,7 +749,7 @@ Circuit breakers are essential when your API depends on external services:
 1. **Email Notifications**: Email server down → fail fast, log locally instead of timeout
 2. **Database Connection Pool**: Database slow/unavailable → return graceful error with empty results
 3. **External APIs**: Third-party service unavailable → return default response
-4. **Active Directory**: Auth service down → use local authentication fallback
+4. **Active Directory / LDAP**: Auth service down → use local authentication fallback
 5. **Message Queues**: Queue service unavailable → store locally and retry
 
 **In this project**, circuit breakers protect:
@@ -1668,11 +1682,21 @@ This API implements a comprehensive, database-driven Role-Based Access Control (
 
 The RBAC system provides three layers of security:
 
-1. **Authentication**: Validate user identity (Active Directory or API tokens)
+1. **Authentication**: Validate user identity (Active Directory, LDAP, or API tokens)
 2. **Object-Level Authorization**: Control which resources users can access
 3. **Field-Level Authorization**: Control which fields users can read and write
 
 Active Directory authentication uses `sAMAccountName` for login. AD group memberships map directly to roles, and users with no group membership receive the `USER` role.
+
+For testing and local development, an **embedded LDAP server** (UnboundID) provides authentication without requiring external infrastructure. LDAP groups are mapped to application roles:
+
+| LDAP Group | Application Role |
+|---|---|
+| `GroupA-Users` | `ROLE_MY_APP_USER` |
+| `GroupB-Admins` | `ROLE_MY_APP_ADMIN` |
+| `GroupC-SuperAdmins` | `ROLE_MY_APP_SUPERADMIN` |
+
+Test users: `user1`/`password1`, `user2`/`password2` (Users), `admin1`/`admin123` (Users + Admins), `superadmin1`/`super123` (SuperAdmins).
 
 ### Key Features
 
@@ -1712,7 +1736,7 @@ keystore or secret manager and avoid storing private keys in `application.yml`.
        ▼
 ┌──────────────────────┐
 │ Authentication Layer │ ← Validate user identity
-│  (Active Directory/JWT)  │
+│ (LDAP/Active Directory/JWT) │
 └──────────┬───────────┘
            │
            ▼
@@ -1877,7 +1901,10 @@ application/
 │   ├── PermissionRepository.java
 │   ├── RolePermissionRepository.java
 │   ├── RoleManagementService.java
-│   └── RoleManagementController.java
+│   ├── RoleManagementController.java
+│   ├── EmbeddedLdapTestConfig.java   // Test-only: embedded LDAP server config
+│   ├── EmbeddedLdapAuthenticationTest.java  // LDAP auth unit tests
+│   └── LdapIntegrationTest.java      // LDAP integration tests
 └── batch/
     └── BatchComputerSystemController.java
 ```
@@ -2179,7 +2206,7 @@ POST /api/v1/admin/cache/reload
 3. **Field-Level Security**: Always define field permissions explicitly
 4. **Cache Management**: Reload cache after permission changes
 5. **Audit Logging**: Log all permission changes (future enhancement)
-6. **Authentication**: Integrate with Active Directory or JWT in production
+6. **Authentication**: Integrate with Active Directory or JWT in production; use embedded LDAP for testing
 7. **API Protection**: Restrict admin endpoints to trusted networks
 8. **Database Backups**: Regular backups of roles/permissions tables
 9. **Testing**: Test permission changes in staging before production
