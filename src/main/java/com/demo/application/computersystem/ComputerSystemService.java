@@ -37,9 +37,11 @@ public class ComputerSystemService {
     private static final Logger logger = LoggerFactory.getLogger(ComputerSystemService.class);
     private static final String NOT_FOUND = " not found";
     private final ComputerSystemRepository repository;
+    private final ComputerSystemMapper mapper;
 
-    public ComputerSystemService(ComputerSystemRepository repository) {
+    public ComputerSystemService(ComputerSystemRepository repository, ComputerSystemMapper mapper) {
         this.repository = repository;
+        this.mapper = mapper;
     }
 
     /**
@@ -66,10 +68,10 @@ public class ComputerSystemService {
             throw new DuplicateResourceException("Computer system with IP address " + dto.getIpAddress() + " already exists");
         }
 
-        ComputerSystem computerSystem = mapToEntity(dto);
+        ComputerSystem computerSystem = mapper.toEntity(dto);
         ComputerSystem savedSystem = repository.save(computerSystem);
 
-        return mapToDto(savedSystem);
+        return mapper.toDto(savedSystem);
     }
 
     /**
@@ -95,7 +97,7 @@ public class ComputerSystemService {
         ComputerSystem computerSystem = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Computer system with id " + id + NOT_FOUND));
 
-        return mapToDto(computerSystem);
+        return mapper.toDto(computerSystem);
     }
 
     /**
@@ -116,7 +118,7 @@ public class ComputerSystemService {
     @Transactional(readOnly = true)
     @CircuitBreaker(name = "databaseQuery", fallbackMethod = "getAllComputerSystemsFallback")
     public Page<ComputerSystemDto> getAllComputerSystems(Pageable pageable) {
-        return repository.findAll(pageable).map(this::mapToDto);
+        return repository.findAll(pageable).map(mapper::toDto);
     }
 
     /**
@@ -146,7 +148,7 @@ public class ComputerSystemService {
             String department,
             String user,
             Pageable pageable) {
-        return repository.findByFilters(hostname, department, user, pageable).map(this::mapToDto);
+        return repository.findByFilters(hostname, department, user, pageable).map(mapper::toDto);
     }
 
     /**
@@ -192,18 +194,11 @@ public class ComputerSystemService {
             throw new DuplicateResourceException("Computer system with IP address " + dto.getIpAddress() + " already exists");
         }
 
-        computerSystem.setHostname(dto.getHostname());
-        computerSystem.setManufacturer(dto.getManufacturer());
-        computerSystem.setModel(dto.getModel());
-        computerSystem.setUser(dto.getUser());
-        computerSystem.setDepartment(dto.getDepartment());
-        computerSystem.setMacAddress(dto.getMacAddress());
-        computerSystem.setIpAddress(dto.getIpAddress());
-        computerSystem.setNetworkName(dto.getNetworkName());
+        mapper.updateEntityFromDto(dto, computerSystem);
 
         ComputerSystem updatedSystem = repository.save(computerSystem);
 
-        return mapToDto(updatedSystem);
+        return mapper.toDto(updatedSystem);
     }
 
     /**
@@ -252,7 +247,7 @@ public class ComputerSystemService {
         ComputerSystem computerSystem = repository.findByHostname(hostname)
                 .orElseThrow(() -> new ResourceNotFoundException("Computer system with hostname " + hostname + NOT_FOUND));
 
-        return mapToDto(computerSystem);
+        return mapper.toDto(computerSystem);
     }
 
     /**
@@ -262,39 +257,6 @@ public class ComputerSystemService {
                                                                 CallNotPermittedException ex) {
         logger.error("Database circuit breaker OPEN: Cannot retrieve computer system {} - database unavailable", hostname);
         throw new RuntimeException("Database service temporarily unavailable. Please try again later.");
-    }
-
-    /**
-     * Maps ComputerSystem entity to DTO.
-     */
-    private ComputerSystemDto mapToDto(ComputerSystem entity) {
-        return ComputerSystemDto.builder()
-                .id(entity.getId())
-                .hostname(entity.getHostname())
-                .manufacturer(entity.getManufacturer())
-                .model(entity.getModel())
-                .user(entity.getUser())
-                .department(entity.getDepartment())
-                .macAddress(entity.getMacAddress())
-                .ipAddress(entity.getIpAddress())
-                .networkName(entity.getNetworkName())
-                .build();
-    }
-
-    /**
-     * Maps ComputerSystemDTO to entity.
-     */
-    private ComputerSystem mapToEntity(ComputerSystemDto dto) {
-        return ComputerSystem.builder()
-                .hostname(dto.getHostname())
-                .manufacturer(dto.getManufacturer())
-                .model(dto.getModel())
-                .user(dto.getUser())
-                .department(dto.getDepartment())
-                .macAddress(dto.getMacAddress())
-                .ipAddress(dto.getIpAddress())
-                .networkName(dto.getNetworkName())
-                .build();
     }
 }
 

@@ -7,7 +7,6 @@ import com.demo.domain.computersystem.ComputerSystem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -28,14 +27,19 @@ class ComputerSystemServiceTest {
     @Mock
     private ComputerSystemRepository repository;
 
-    @InjectMocks
+    private ComputerSystemMapper mapper;
+
     private ComputerSystemService service;
 
     private ComputerSystem testComputerSystem;
     private ComputerSystemDto testDto;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
+        Class<?> implClass = Class.forName(ComputerSystemMapper.class.getName() + "Impl");
+        mapper = (ComputerSystemMapper) implClass.getDeclaredConstructor().newInstance();
+        service = new ComputerSystemService(repository, mapper);
+
         testComputerSystem = ComputerSystem.builder()
                 .id(1L)
                 .hostname("SERVER-001")

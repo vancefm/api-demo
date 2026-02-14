@@ -33,17 +33,26 @@ public class RoleManagementService {
     private final RolePermissionRepository rolePermissionRepository;
     private final UserRepository userRepository;
     private final RolePermissionService rolePermissionService;
+    private final RoleMapper roleMapper;
+    private final PermissionMapper permissionMapper;
+    private final UserMapper userMapper;
     
     public RoleManagementService(RoleRepository roleRepository,
                                 PermissionRepository permissionRepository,
                                 RolePermissionRepository rolePermissionRepository,
                                 UserRepository userRepository,
-                                RolePermissionService rolePermissionService) {
+                                RolePermissionService rolePermissionService,
+                                RoleMapper roleMapper,
+                                PermissionMapper permissionMapper,
+                                UserMapper userMapper) {
         this.roleRepository = roleRepository;
         this.permissionRepository = permissionRepository;
         this.rolePermissionRepository = rolePermissionRepository;
         this.userRepository = userRepository;
         this.rolePermissionService = rolePermissionService;
+        this.roleMapper = roleMapper;
+        this.permissionMapper = permissionMapper;
+        this.userMapper = userMapper;
     }
     
     // ===== Role Management =====
@@ -53,27 +62,24 @@ public class RoleManagementService {
             throw new DuplicateResourceException("Role with name '" + dto.getName() + "' already exists");
         }
         
-        Role role = Role.builder()
-            .name(dto.getName())
-            .description(dto.getDescription())
-            .build();
+        Role role = roleMapper.toEntity(dto);
         
         Role saved = roleRepository.save(role);
         logger.info("Created role: {}", saved.getName());
         
-        return mapToRoleDto(saved);
+        return roleMapper.toDto(saved);
     }
     
     public List<RoleDto> getAllRoles() {
         return roleRepository.findAll().stream()
-            .map(this::mapToRoleDto)
+            .map(roleMapper::toDto)
             .collect(Collectors.toList());
     }
     
     public RoleDto getRoleById(Long id) {
         Role role = roleRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Role with id " + id + " not found"));
-        return mapToRoleDto(role);
+        return roleMapper.toDto(role);
     }
     
     public RoleDto updateRole(Long id, RoleDto dto) {
@@ -85,8 +91,7 @@ public class RoleManagementService {
             throw new DuplicateResourceException("Role with name '" + dto.getName() + "' already exists");
         }
         
-        role.setName(dto.getName());
-        role.setDescription(dto.getDescription());
+        roleMapper.updateEntityFromDto(dto, role);
         
         Role updated = roleRepository.save(role);
         logger.info("Updated role: {}", updated.getName());
@@ -94,7 +99,7 @@ public class RoleManagementService {
         // Reload cache after role update
         rolePermissionService.reloadCache();
         
-        return mapToRoleDto(updated);
+        return roleMapper.toDto(updated);
     }
     
     public void deleteRole(Long id) {
@@ -114,40 +119,32 @@ public class RoleManagementService {
     // ===== Permission Management =====
     
     public PermissionDto createPermission(PermissionDto dto) {
-        Permission permission = Permission.builder()
-            .resourceType(dto.getResourceType())
-            .operation(dto.getOperation())
-            .scope(dto.getScope())
-            .fieldPermissions(dto.getFieldPermissions())
-            .build();
+        Permission permission = permissionMapper.toEntity(dto);
         
         Permission saved = permissionRepository.save(permission);
         logger.info("Created permission: {} {} {}", 
             saved.getResourceType(), saved.getOperation(), saved.getScope());
         
-        return mapToPermissionDto(saved);
+        return permissionMapper.toDto(saved);
     }
     
     public List<PermissionDto> getAllPermissions() {
         return permissionRepository.findAll().stream()
-            .map(this::mapToPermissionDto)
+            .map(permissionMapper::toDto)
             .collect(Collectors.toList());
     }
     
     public PermissionDto getPermissionById(Long id) {
         Permission permission = permissionRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Permission with id " + id + " not found"));
-        return mapToPermissionDto(permission);
+        return permissionMapper.toDto(permission);
     }
     
     public PermissionDto updatePermission(Long id, PermissionDto dto) {
         Permission permission = permissionRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Permission with id " + id + " not found"));
         
-        permission.setResourceType(dto.getResourceType());
-        permission.setOperation(dto.getOperation());
-        permission.setScope(dto.getScope());
-        permission.setFieldPermissions(dto.getFieldPermissions());
+        permissionMapper.updateEntityFromDto(dto, permission);
         
         Permission updated = permissionRepository.save(permission);
         logger.info("Updated permission: {} {} {}", 
@@ -156,7 +153,7 @@ public class RoleManagementService {
         // Reload cache after permission update
         rolePermissionService.reloadCache();
         
-        return mapToPermissionDto(updated);
+        return permissionMapper.toDto(updated);
     }
     
     public void deletePermission(Long id) {
@@ -221,7 +218,7 @@ public class RoleManagementService {
             .orElseThrow(() -> new ResourceNotFoundException("Role with id " + roleId + " not found"));
         
         return rolePermissionRepository.findPermissionsByRole(role).stream()
-            .map(this::mapToPermissionDto)
+            .map(permissionMapper::toDto)
             .collect(Collectors.toList());
     }
     
@@ -239,29 +236,25 @@ public class RoleManagementService {
         Role role = roleRepository.findById(dto.getRoleId())
             .orElseThrow(() -> new ResourceNotFoundException("Role with id " + dto.getRoleId() + " not found"));
         
-        User user = User.builder()
-            .username(dto.getUsername())
-            .email(dto.getEmail())
-            .department(dto.getDepartment())
-            .role(role)
-            .build();
+        User user = userMapper.toEntity(dto);
+        user.setRole(role);
         
         User saved = userRepository.save(user);
         logger.info("Created user: {}", saved.getUsername());
         
-        return mapToUserDto(saved);
+        return userMapper.toDto(saved);
     }
     
     public List<UserDto> getAllUsers() {
         return userRepository.findAll().stream()
-            .map(this::mapToUserDto)
+            .map(userMapper::toDto)
             .collect(Collectors.toList());
     }
     
     public UserDto getUserById(Long id) {
         User user = userRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("User with id " + id + " not found"));
-        return mapToUserDto(user);
+        return userMapper.toDto(user);
     }
     
     public UserDto updateUser(Long id, UserDto dto) {
@@ -281,15 +274,13 @@ public class RoleManagementService {
         Role role = roleRepository.findById(dto.getRoleId())
             .orElseThrow(() -> new ResourceNotFoundException("Role with id " + dto.getRoleId() + " not found"));
         
-        user.setUsername(dto.getUsername());
-        user.setEmail(dto.getEmail());
-        user.setDepartment(dto.getDepartment());
+        userMapper.updateEntityFromDto(dto, user);
         user.setRole(role);
         
         User updated = userRepository.save(user);
         logger.info("Updated user: {}", updated.getUsername());
         
-        return mapToUserDto(updated);
+        return userMapper.toDto(updated);
     }
     
     public void deleteUser(Long id) {
@@ -305,36 +296,5 @@ public class RoleManagementService {
     public void reloadPermissionsCache() {
         rolePermissionService.reloadCache();
         logger.info("Reloaded permissions cache");
-    }
-    
-    // ===== Mapping Methods =====
-    
-    private RoleDto mapToRoleDto(Role role) {
-        return new RoleDto(
-            role.getId(),
-            role.getName(),
-            role.getDescription()
-        );
-    }
-    
-    private PermissionDto mapToPermissionDto(Permission permission) {
-        return new PermissionDto(
-            permission.getId(),
-            permission.getResourceType(),
-            permission.getOperation(),
-            permission.getScope(),
-            permission.getFieldPermissions()
-        );
-    }
-    
-    private UserDto mapToUserDto(User user) {
-        return new UserDto(
-            user.getId(),
-            user.getUsername(),
-            user.getEmail(),
-            user.getDepartment(),
-            user.getRole().getId(),
-            user.getRole().getName()
-        );
     }
 }
