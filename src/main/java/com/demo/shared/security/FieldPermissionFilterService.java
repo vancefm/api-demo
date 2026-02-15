@@ -2,8 +2,8 @@ package com.demo.shared.security;
 
 import com.demo.domain.user.User;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -12,21 +12,13 @@ import java.util.Map;
  * Service for filtering DTO fields based on user permissions.
  */
 @Service
+@Slf4j
+@RequiredArgsConstructor
 public class FieldPermissionFilterService {
-    
-    private static final Logger logger = LoggerFactory.getLogger(FieldPermissionFilterService.class);
     
     private final AuthorizationService authorizationService;
     private final FieldPermissionsConfig fieldPermissionsConfig;
     private final ObjectMapper objectMapper;
-    
-    public FieldPermissionFilterService(AuthorizationService authorizationService,
-                                       FieldPermissionsConfig fieldPermissionsConfig,
-                                       ObjectMapper objectMapper) {
-        this.authorizationService = authorizationService;
-        this.fieldPermissionsConfig = fieldPermissionsConfig;
-        this.objectMapper = objectMapper;
-    }
     
     /**
      * Filter fields from a DTO based on user's read permissions.

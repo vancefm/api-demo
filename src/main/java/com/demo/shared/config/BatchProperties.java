@@ -1,5 +1,7 @@
 package com.demo.shared.config;
 
+import lombok.Getter;
+import lombok.ToString;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
@@ -39,6 +41,8 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 @ConfigurationProperties(prefix = "app.batch")
+@Getter
+@ToString
 public class BatchProperties {
 
     /**
@@ -80,11 +84,7 @@ public class BatchProperties {
     public BatchProperties() {
     }
 
-    // Getters and Setters
-    public int getMaxItems() {
-        return maxItems;
-    }
-
+    // Custom setters with validation
     public void setMaxItems(int maxItems) {
         if (maxItems < 1) {
             throw new IllegalArgumentException("Batch max items must be at least 1");
@@ -95,22 +95,10 @@ public class BatchProperties {
         this.maxItems = maxItems;
     }
 
-    public int getTimeoutSeconds() {
-        return timeoutSeconds;
-    }
-
     public void setTimeoutSeconds(int timeoutSeconds) {
         if (timeoutSeconds < 1) {
             throw new IllegalArgumentException("Batch timeout must be at least 1 second");
         }
         this.timeoutSeconds = timeoutSeconds;
-    }
-
-    @Override
-    public String toString() {
-        return "BatchProperties{" +
-                "maxItems=" + maxItems +
-                ", timeoutSeconds=" + timeoutSeconds +
-                '}';
     }
 }

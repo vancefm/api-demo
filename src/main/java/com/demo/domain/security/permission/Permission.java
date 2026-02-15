@@ -1,6 +1,5 @@
-package com.demo.domain.user;
+package com.demo.domain.security.permission;
 
-import com.demo.domain.security.role.Role;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,41 +10,34 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * Entity representing a user in the system.
- * Users have a role that determines their permissions.
+ * Entity representing a permission in the system.
+ * Permissions define what operations can be performed on which resources.
+ * Field-level permissions are stored as JSON in the fieldPermissions column.
  */
 @Entity
-@Table(name = "users")
+@Table(name = "permissions")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
+public class Permission {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 100)
-    private String username;
-
-    @Column(nullable = false, length = 255)
-    private String email;
-
     @Column(nullable = false, length = 100)
-    private String department;
+    private String resourceType;
 
-    @Column(nullable = true, length = 255)
-    private String passwordHash;
+    @Column(nullable = false, length = 50)
+    private String operation;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "role_id", nullable = false)
-    private Role role;
+    @Column(nullable = false, length = 50)
+    private String scope;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "manager_id")
-    private User manager;
+    @Column(columnDefinition = "TEXT")
+    private String fieldPermissions;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

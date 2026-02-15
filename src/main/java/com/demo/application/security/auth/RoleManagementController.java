@@ -1,7 +1,7 @@
-package com.demo.application.security;
+package com.demo.application.security.auth;
 
-import com.demo.domain.security.dto.PermissionDto;
-import com.demo.domain.security.dto.RoleDto;
+import com.demo.domain.security.role.RoleDto;
+import com.demo.domain.security.permission.PermissionDto;
 import com.demo.domain.user.UserDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

@@ -1,7 +1,8 @@
 package com.demo.application.security;
 
-import com.demo.domain.security.Role;
+import com.demo.domain.security.role.Role;
 import com.demo.domain.user.User;
+import com.demo.application.security.auth.RoleRepository;
 import com.demo.application.user.UserRepository;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -17,7 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-public class TokenControllerIT {
+class TokenControllerIT {
 
     @Autowired
     private MockMvc mockMvc;
@@ -33,7 +34,7 @@ public class TokenControllerIT {
 
     @Test
     @WithMockUser(roles = {"MY_APP_SUPERADMIN"})
-    public void createTokenAsAdmin() throws Exception {
+    void createTokenAsAdmin() throws Exception {
         Role role = roleRepository.findByName("MY_APP_USER")
                 .orElseGet(() -> {
                     Role r = new Role();

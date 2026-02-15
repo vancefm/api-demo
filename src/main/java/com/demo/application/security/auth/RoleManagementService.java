@@ -1,18 +1,21 @@
-package com.demo.application.security;
+package com.demo.application.security.auth;
 
 import com.demo.application.user.UserRepository;
-import com.demo.domain.security.Permission;
-import com.demo.domain.security.Role;
-import com.demo.domain.security.RolePermission;
+import com.demo.domain.security.role.Role;
 import com.demo.domain.user.User;
-import com.demo.domain.security.dto.PermissionDto;
-import com.demo.domain.security.dto.RoleDto;
+import com.demo.domain.security.role.RoleDto;
+import com.demo.domain.security.role.RoleMapper;
+import com.demo.domain.security.permission.Permission;
+import com.demo.domain.security.permission.PermissionDto;
+import com.demo.domain.security.permission.PermissionMapper;
+import com.demo.domain.security.rolepermission.RolePermission;
 import com.demo.domain.user.UserDto;
+import com.demo.domain.user.UserMapper;
 import com.demo.shared.exception.DuplicateResourceException;
 import com.demo.shared.exception.ResourceNotFoundException;
 import com.demo.shared.security.RolePermissionService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,9 +27,9 @@ import java.util.stream.Collectors;
  */
 @Service
 @Transactional
+@Slf4j
+@RequiredArgsConstructor
 public class RoleManagementService {
-    
-    private static final Logger logger = LoggerFactory.getLogger(RoleManagementService.class);
     
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
@@ -36,24 +39,6 @@ public class RoleManagementService {
     private final RoleMapper roleMapper;
     private final PermissionMapper permissionMapper;
     private final UserMapper userMapper;
-    
-    public RoleManagementService(RoleRepository roleRepository,
-                                PermissionRepository permissionRepository,
-                                RolePermissionRepository rolePermissionRepository,
-                                UserRepository userRepository,
-                                RolePermissionService rolePermissionService,
-                                RoleMapper roleMapper,
-                                PermissionMapper permissionMapper,
-                                UserMapper userMapper) {
-        this.roleRepository = roleRepository;
-        this.permissionRepository = permissionRepository;
-        this.rolePermissionRepository = rolePermissionRepository;
-        this.userRepository = userRepository;
-        this.rolePermissionService = rolePermissionService;
-        this.roleMapper = roleMapper;
-        this.permissionMapper = permissionMapper;
-        this.userMapper = userMapper;
-    }
     
     // ===== Role Management =====
     
@@ -65,7 +50,7 @@ public class RoleManagementService {
         Role role = roleMapper.toEntity(dto);
         
         Role saved = roleRepository.save(role);
-        logger.info("Created role: {}", saved.getName());
+        log.info("Created role: {}", saved.getName());
         
         return roleMapper.toDto(saved);
     }
@@ -94,7 +79,7 @@ public class RoleManagementService {
         roleMapper.updateEntityFromDto(dto, role);
         
         Role updated = roleRepository.save(role);
-        logger.info("Updated role: {}", updated.getName());
+        log.info("Updated role: {}", updated.getName());
         
         // Reload cache after role update
         rolePermissionService.reloadCache();
@@ -110,7 +95,7 @@ public class RoleManagementService {
         rolePermissionRepository.deleteByRole(role);
         
         roleRepository.delete(role);
-        logger.info("Deleted role: {}", role.getName());
+        log.info("Deleted role: {}", role.getName());
         
         // Reload cache after role deletion
         rolePermissionService.reloadCache();
@@ -122,7 +107,7 @@ public class RoleManagementService {
         Permission permission = permissionMapper.toEntity(dto);
         
         Permission saved = permissionRepository.save(permission);
-        logger.info("Created permission: {} {} {}", 
+        log.info("Created permission: {} {} {}", 
             saved.getResourceType(), saved.getOperation(), saved.getScope());
         
         return permissionMapper.toDto(saved);
@@ -147,7 +132,7 @@ public class RoleManagementService {
         permissionMapper.updateEntityFromDto(dto, permission);
         
         Permission updated = permissionRepository.save(permission);
-        logger.info("Updated permission: {} {} {}", 
+        log.info("Updated permission: {} {} {}", 
             updated.getResourceType(), updated.getOperation(), updated.getScope());
         
         // Reload cache after permission update
@@ -164,7 +149,7 @@ public class RoleManagementService {
         rolePermissionRepository.deleteByPermission(permission);
         
         permissionRepository.delete(permission);
-        logger.info("Deleted permission: {} {} {}", 
+        log.info("Deleted permission: {} {} {}", 
             permission.getResourceType(), permission.getOperation(), permission.getScope());
         
         // Reload cache after permission deletion
@@ -189,7 +174,7 @@ public class RoleManagementService {
             .build();
         
         rolePermissionRepository.save(rolePermission);
-        logger.info("Assigned permission {} to role {}", permissionId, roleId);
+        log.info("Assigned permission {} to role {}", permissionId, roleId);
         
         // Reload cache after assignment
         rolePermissionService.reloadCache();
@@ -207,7 +192,7 @@ public class RoleManagementService {
             .findFirst()
             .ifPresent(rolePermissionRepository::delete);
         
-        logger.info("Revoked permission {} from role {}", permissionId, roleId);
+        log.info("Revoked permission {} from role {}", permissionId, roleId);
         
         // Reload cache after revocation
         rolePermissionService.reloadCache();
@@ -239,8 +224,14 @@ public class RoleManagementService {
         User user = userMapper.toEntity(dto);
         user.setRole(role);
         
+        if (dto.getManagerId() != null) {
+            User manager = userRepository.findById(dto.getManagerId())
+                .orElseThrow(() -> new ResourceNotFoundException("Manager with id " + dto.getManagerId() + " not found"));
+            user.setManager(manager);
+        }
+        
         User saved = userRepository.save(user);
-        logger.info("Created user: {}", saved.getUsername());
+        log.info("Created user: {}", saved.getUsername());
         
         return userMapper.toDto(saved);
     }
@@ -277,8 +268,16 @@ public class RoleManagementService {
         userMapper.updateEntityFromDto(dto, user);
         user.setRole(role);
         
+        if (dto.getManagerId() != null) {
+            User manager = userRepository.findById(dto.getManagerId())
+                .orElseThrow(() -> new ResourceNotFoundException("Manager with id " + dto.getManagerId() + " not found"));
+            user.setManager(manager);
+        } else {
+            user.setManager(null);
+        }
+        
         User updated = userRepository.save(user);
-        logger.info("Updated user: {}", updated.getUsername());
+        log.info("Updated user: {}", updated.getUsername());
         
         return userMapper.toDto(updated);
     }
@@ -288,13 +287,13 @@ public class RoleManagementService {
             .orElseThrow(() -> new ResourceNotFoundException("User with id " + id + " not found"));
         
         userRepository.delete(user);
-        logger.info("Deleted user: {}", user.getUsername());
+        log.info("Deleted user: {}", user.getUsername());
     }
     
     // ===== Cache Management =====
     
     public void reloadPermissionsCache() {
         rolePermissionService.reloadCache();
-        logger.info("Reloaded permissions cache");
+        log.info("Reloaded permissions cache");
     }
 }

@@ -1,6 +1,10 @@
 package com.demo.application.computersystem;
 
+import com.demo.application.security.auth.RoleRepository;
+import com.demo.application.user.UserRepository;
 import com.demo.domain.computersystem.ComputerSystemDto;
+import com.demo.domain.security.role.Role;
+import com.demo.domain.user.User;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,15 +34,45 @@ class ComputerSystemIntegrationIT {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private RoleRepository roleRepository;
+
     private ComputerSystemDto testDto;
+    private User johnDoe;
+    private User janeDoe;
 
     @BeforeEach
     void setUp() {
+        Role role = roleRepository.findByName("MY_APP_USER")
+                .orElseGet(() -> roleRepository.save(Role.builder()
+                        .name("MY_APP_USER")
+                        .description("Test role")
+                        .build()));
+
+        johnDoe = userRepository.findByUsername("john.doe")
+                .orElseGet(() -> userRepository.save(User.builder()
+                        .username("john.doe")
+                        .email("john.doe@example.com")
+                        .department("IT")
+                        .role(role)
+                        .build()));
+
+        janeDoe = userRepository.findByUsername("jane.doe")
+                .orElseGet(() -> userRepository.save(User.builder()
+                        .username("jane.doe")
+                        .email("jane.doe@example.com")
+                        .department("IT")
+                        .role(role)
+                        .build()));
+
         testDto = ComputerSystemDto.builder()
                 .hostname("SERVER-001")
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
-                .user("john.doe")
+                .userId(johnDoe.getId())
                 .department("IT")
                 .macAddress("00:1A:2B:3C:4D:5E")
                 .ipAddress("192.168.1.100")
@@ -71,7 +105,7 @@ class ComputerSystemIntegrationIT {
                 .hostname(uniqueHostname)
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
-                .user("john.doe")
+                .userId(johnDoe.getId())
                 .department("IT")
                 .macAddress("00:1A:2B:3C:4D:" + String.format("%02X", System.nanoTime() % 256))
                 .ipAddress("192.168.1." + (System.nanoTime() % 254 + 1))
@@ -104,7 +138,7 @@ class ComputerSystemIntegrationIT {
                 .hostname("")  // Invalid: empty
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
-                .user("john.doe")
+                .userId(johnDoe.getId())
                 .department("IT")
                 .macAddress("invalid-mac")
                 .ipAddress("192.168.1.100")
@@ -131,7 +165,7 @@ class ComputerSystemIntegrationIT {
                 .hostname(uniqueHostname)
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
-                .user("john.doe")
+                .userId(johnDoe.getId())
                 .department("IT")
                 .macAddress("00:1A:2B:3C:4D:" + String.format("%02X", System.nanoTime() % 256))
                 .ipAddress("192.168.1." + (System.nanoTime() % 254 + 1))
@@ -153,12 +187,12 @@ class ComputerSystemIntegrationIT {
         ComputerSystemDto createdDto = objectMapper.readValue(responseBody, ComputerSystemDto.class);
 
         // Update
-        createdDto.setUser("jane.doe");
+        createdDto.setUserId(janeDoe.getId());
         mockMvc.perform(put("/api/v1/computer-systems/" + createdDto.getId())
                 .contentType(MediaType.APPLICATION_JSON_VALUE)
                 .content(Objects.requireNonNull(objectMapper.writeValueAsString(createdDto))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.user", is("jane.doe")));
+                .andExpect(jsonPath("$.userId", is(janeDoe.getId().intValue())));
     }
 
     @Test

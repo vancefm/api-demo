@@ -1,14 +1,14 @@
 package com.demo.shared.security;
 
-import com.demo.application.security.PermissionRepository;
-import com.demo.application.security.RolePermissionRepository;
-import com.demo.application.security.RoleRepository;
-import com.demo.domain.security.Permission;
-import com.demo.domain.security.Role;
+import com.demo.domain.security.role.Role;
+import com.demo.application.security.auth.PermissionRepository;
+import com.demo.application.security.auth.RolePermissionRepository;
+import com.demo.application.security.auth.RoleRepository;
+import com.demo.domain.security.permission.Permission;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -19,9 +19,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * Provides methods to check permissions and reload cache without redeployment.
  */
 @Service
+@Slf4j
+@RequiredArgsConstructor
 public class RolePermissionService {
-    
-    private static final Logger logger = LoggerFactory.getLogger(RolePermissionService.class);
     
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
@@ -30,16 +30,6 @@ public class RolePermissionService {
     
     // Cache: roleName -> list of permissions
     private final Map<String, List<Permission>> rolePermissionsCache = new ConcurrentHashMap<>();
-    
-    public RolePermissionService(RoleRepository roleRepository,
-                                PermissionRepository permissionRepository,
-                                RolePermissionRepository rolePermissionRepository,
-                                ObjectMapper objectMapper) {
-        this.roleRepository = roleRepository;
-        this.permissionRepository = permissionRepository;
-        this.rolePermissionRepository = rolePermissionRepository;
-        this.objectMapper = objectMapper;
-    }
     
     /**
      * Get all permissions for a role.
@@ -59,7 +49,7 @@ public class RolePermissionService {
     private List<Permission> loadPermissionsForRole(String roleName) {
         Optional<Role> roleOpt = roleRepository.findByName(roleName);
         if (roleOpt.isEmpty()) {
-            logger.warn("Role not found: {}", roleName);
+            log.warn("Role not found: {}", roleName);
             return Collections.emptyList();
         }
         
@@ -67,7 +57,7 @@ public class RolePermissionService {
         List<Permission> permissions = rolePermissionRepository.findPermissionsByRole(role);
         rolePermissionsCache.put(roleName, permissions);
         
-        logger.debug("Loaded {} permissions for role: {}", permissions.size(), roleName);
+        log.debug("Loaded {} permissions for role: {}", permissions.size(), roleName);
         return permissions;
     }
     
@@ -76,7 +66,7 @@ public class RolePermissionService {
      * Call this after modifying roles or permissions via admin API.
      */
     public void reloadCache() {
-        logger.info("Reloading role permissions cache");
+        log.info("Reloading role permissions cache");
         rolePermissionsCache.clear();
         
         // Pre-load all roles
@@ -85,7 +75,7 @@ public class RolePermissionService {
             loadPermissionsForRole(role.getName());
         }
         
-        logger.info("Role permissions cache reloaded successfully");
+        log.info("Role permissions cache reloaded successfully");
     }
     
     /**
@@ -118,7 +108,7 @@ public class RolePermissionService {
                     try {
                         return objectMapper.readValue(fieldPermsJson, new TypeReference<Map<String, String>>() {});
                     } catch (Exception e) {
-                        logger.error("Error parsing field permissions JSON: {}", e.getMessage());
+                        log.error("Error parsing field permissions JSON: {}", e.getMessage());
                     }
                 }
             }

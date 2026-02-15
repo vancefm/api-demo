@@ -1,6 +1,5 @@
-package com.demo.domain.user;
+package com.demo.domain.security.role;
 
-import com.demo.domain.security.role.Role;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,41 +10,27 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * Entity representing a user in the system.
- * Users have a role that determines their permissions.
+ * Entity representing a role in the system.
+ * Roles are defined dynamically in the database rather than hardcoded enums.
  */
 @Entity
-@Table(name = "users")
+@Table(name = "roles")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
+public class Role {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false, unique = true, length = 100)
-    private String username;
+    private String name;
 
-    @Column(nullable = false, length = 255)
-    private String email;
-
-    @Column(nullable = false, length = 100)
-    private String department;
-
-    @Column(nullable = true, length = 255)
-    private String passwordHash;
-
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "role_id", nullable = false)
-    private Role role;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "manager_id")
-    private User manager;
+    @Column(length = 500)
+    private String description;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

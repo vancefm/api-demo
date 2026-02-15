@@ -1,8 +1,9 @@
-package com.demo.application.security;
+package com.demo.application.security.auth;
 
-import com.demo.domain.security.Permission;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+
+import com.demo.domain.security.permission.Permission;
 
 import java.util.List;
 
