@@ -124,8 +124,8 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
       - [Role Management](#role-management)
       - [Permission Management](#permission-management)
       - [Role-Permission Assignment](#role-permission-assignment)
-      - [User Management](#user-management)
       - [Cache Management](#cache-management)
+    - [User APIs](#user-apis)
     - [Step-by-Step: Adding a New Object Type](#step-by-step-adding-a-new-object-type)
       - [Step 1: Define the Entity](#step-1-define-the-entity)
       - [Step 2: Update FieldPermissionsConfig](#step-2-update-fieldpermissionsconfig)
@@ -1895,7 +1895,9 @@ application/
 │   ├── ComputerSystemService.java
 │   └── ComputerSystemController.java
 ├── user/
-│   └── UserRepository.java
+│   ├── UserRepository.java
+│   ├── UserManagementService.java
+│   └── UserManagementController.java
 ├── security/
 │   ├── RoleRepository.java
 │   ├── PermissionRepository.java
@@ -2000,33 +2002,6 @@ DELETE /api/v1/admin/roles/{roleId}/permissions/{permissionId}
 GET /api/v1/admin/roles/{roleId}/permissions
 ```
 
-#### User Management
-
-```http
-# Create User
-POST /api/v1/admin/users
-Content-Type: application/json
-
-{
-  "username": "john.doe",
-  "email": "john.doe@example.com",
-  "department": "IT",
-  "roleId": 1
-}
-
-# Get All Users
-GET /api/v1/admin/users
-
-# Get User by ID
-GET /api/v1/admin/users/{id}
-
-# Update User
-PUT /api/v1/admin/users/{id}
-
-# Delete User
-DELETE /api/v1/admin/users/{id}
-```
-
 #### Cache Management
 
 ```http
@@ -2045,6 +2020,35 @@ POST /api/v1/admin/cache/reload
 - After assigning/revoking role permissions
 
 Cache automatically reloads after these operations, but manual reload is available if needed.
+
+### User APIs
+
+User endpoints are available to any authenticated user and are prefixed with `/api/v1/users`. User management is handled by `UserManagementController` and `UserManagementService` in the `com.demo.application.user` package.
+
+```http
+# Create User
+POST /api/v1/users
+Content-Type: application/json
+
+{
+  "username": "john.doe",
+  "email": "john.doe@example.com",
+  "department": "IT",
+  "roleId": 1
+}
+
+# Get All Users
+GET /api/v1/users
+
+# Get User by ID
+GET /api/v1/users/{id}
+
+# Update User
+PUT /api/v1/users/{id}
+
+# Delete User
+DELETE /api/v1/users/{id}
+```
 
 ### Step-by-Step: Adding a New Object Type
 

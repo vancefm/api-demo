@@ -1,16 +1,12 @@
 package com.demo.application.security.auth;
 
-import com.demo.application.user.UserRepository;
 import com.demo.domain.security.role.Role;
-import com.demo.domain.user.User;
 import com.demo.domain.security.role.RoleDto;
 import com.demo.domain.security.role.RoleMapper;
 import com.demo.domain.security.permission.Permission;
 import com.demo.domain.security.permission.PermissionDto;
 import com.demo.domain.security.permission.PermissionMapper;
 import com.demo.domain.security.rolepermission.RolePermission;
-import com.demo.domain.user.UserDto;
-import com.demo.domain.user.UserMapper;
 import com.demo.shared.exception.DuplicateResourceException;
 import com.demo.shared.exception.ResourceNotFoundException;
 import com.demo.shared.security.RolePermissionService;
@@ -23,7 +19,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Service for managing roles, permissions, and users.
+ * Service for managing roles and permissions.
  */
 @Service
 @Transactional
@@ -34,11 +30,9 @@ public class RoleManagementService {
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
     private final RolePermissionRepository rolePermissionRepository;
-    private final UserRepository userRepository;
     private final RolePermissionService rolePermissionService;
     private final RoleMapper roleMapper;
     private final PermissionMapper permissionMapper;
-    private final UserMapper userMapper;
     
     // ===== Role Management =====
     
@@ -99,6 +93,20 @@ public class RoleManagementService {
         
         // Reload cache after role deletion
         rolePermissionService.reloadCache();
+    }
+
+    /**
+     * Resolves a Role entity by ID.
+     * Used by other services (e.g., UserManagementService) to look up roles
+     * while keeping role validation logic centralized.
+     *
+     * @param id the role ID
+     * @return the Role entity
+     * @throws ResourceNotFoundException if the role does not exist
+     */
+    public Role resolveRole(Long id) {
+        return roleRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Role with id " + id + " not found"));
     }
     
     // ===== Permission Management =====
@@ -205,89 +213,6 @@ public class RoleManagementService {
         return rolePermissionRepository.findPermissionsByRole(role).stream()
             .map(permissionMapper::toDto)
             .collect(Collectors.toList());
-    }
-    
-    // ===== User Management =====
-    
-    public UserDto createUser(UserDto dto) {
-        if (userRepository.existsByUsername(dto.getUsername())) {
-            throw new DuplicateResourceException("User with username '" + dto.getUsername() + "' already exists");
-        }
-        
-        if (userRepository.existsByEmail(dto.getEmail())) {
-            throw new DuplicateResourceException("User with email '" + dto.getEmail() + "' already exists");
-        }
-        
-        Role role = roleRepository.findById(dto.getRoleId())
-            .orElseThrow(() -> new ResourceNotFoundException("Role with id " + dto.getRoleId() + " not found"));
-        
-        User user = userMapper.toEntity(dto);
-        user.setRole(role);
-        
-        if (dto.getManagerId() != null) {
-            User manager = userRepository.findById(dto.getManagerId())
-                .orElseThrow(() -> new ResourceNotFoundException("Manager with id " + dto.getManagerId() + " not found"));
-            user.setManager(manager);
-        }
-        
-        User saved = userRepository.save(user);
-        log.info("Created user: {}", saved.getUsername());
-        
-        return userMapper.toDto(saved);
-    }
-    
-    public List<UserDto> getAllUsers() {
-        return userRepository.findAll().stream()
-            .map(userMapper::toDto)
-            .collect(Collectors.toList());
-    }
-    
-    public UserDto getUserById(Long id) {
-        User user = userRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("User with id " + id + " not found"));
-        return userMapper.toDto(user);
-    }
-    
-    public UserDto updateUser(Long id, UserDto dto) {
-        User user = userRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("User with id " + id + " not found"));
-        
-        // Check if username is being changed to an existing username
-        if (!user.getUsername().equals(dto.getUsername()) && userRepository.existsByUsername(dto.getUsername())) {
-            throw new DuplicateResourceException("User with username '" + dto.getUsername() + "' already exists");
-        }
-        
-        // Check if email is being changed to an existing email
-        if (!user.getEmail().equals(dto.getEmail()) && userRepository.existsByEmail(dto.getEmail())) {
-            throw new DuplicateResourceException("User with email '" + dto.getEmail() + "' already exists");
-        }
-        
-        Role role = roleRepository.findById(dto.getRoleId())
-            .orElseThrow(() -> new ResourceNotFoundException("Role with id " + dto.getRoleId() + " not found"));
-        
-        userMapper.updateEntityFromDto(dto, user);
-        user.setRole(role);
-        
-        if (dto.getManagerId() != null) {
-            User manager = userRepository.findById(dto.getManagerId())
-                .orElseThrow(() -> new ResourceNotFoundException("Manager with id " + dto.getManagerId() + " not found"));
-            user.setManager(manager);
-        } else {
-            user.setManager(null);
-        }
-        
-        User updated = userRepository.save(user);
-        log.info("Updated user: {}", updated.getUsername());
-        
-        return userMapper.toDto(updated);
-    }
-    
-    public void deleteUser(Long id) {
-        User user = userRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("User with id " + id + " not found"));
-        
-        userRepository.delete(user);
-        log.info("Deleted user: {}", user.getUsername());
     }
     
     // ===== Cache Management =====

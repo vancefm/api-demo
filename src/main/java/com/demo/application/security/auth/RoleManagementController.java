@@ -2,7 +2,6 @@ package com.demo.application.security.auth;
 
 import com.demo.domain.security.role.RoleDto;
 import com.demo.domain.security.permission.PermissionDto;
-import com.demo.domain.user.UserDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -16,12 +15,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * REST controller for role, permission, and user management.
+ * REST controller for role and permission management.
  * These endpoints should only be accessible by SUPER_ADMIN users.
  */
 @RestController
 @RequestMapping("/api/v1/admin")
-@Tag(name = "Role Management", description = "Admin APIs for managing roles, permissions, and users")
+@Tag(name = "Role Management", description = "Admin APIs for managing roles and permissions")
 public class RoleManagementController {
     
     private final RoleManagementService roleManagementService;
@@ -160,57 +159,6 @@ public class RoleManagementController {
     public ResponseEntity<List<PermissionDto>> getPermissionsForRole(@PathVariable Long roleId) {
         List<PermissionDto> permissions = roleManagementService.getPermissionsForRole(roleId);
         return ResponseEntity.ok(permissions);
-    }
-    
-    // ===== User Endpoints =====
-    
-    @PostMapping("/users")
-    @Operation(summary = "Create a new user", description = "Create a new user in the system")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "201", description = "User created successfully"),
-        @ApiResponse(responseCode = "400", description = "Invalid input"),
-        @ApiResponse(responseCode = "409", description = "User already exists")
-    })
-    public ResponseEntity<UserDto> createUser(@Valid @RequestBody UserDto dto) {
-        UserDto created = roleManagementService.createUser(dto);
-        return new ResponseEntity<>(created, HttpStatus.CREATED);
-    }
-    
-    @GetMapping("/users")
-    @Operation(summary = "Get all users", description = "Retrieve all users in the system")
-    public ResponseEntity<List<UserDto>> getAllUsers() {
-        List<UserDto> users = roleManagementService.getAllUsers();
-        return ResponseEntity.ok(users);
-    }
-    
-    @GetMapping("/users/{id}")
-    @Operation(summary = "Get user by ID", description = "Retrieve a specific user by their ID")
-    public ResponseEntity<UserDto> getUserById(@PathVariable Long id) {
-        UserDto user = roleManagementService.getUserById(id);
-        return ResponseEntity.ok(user);
-    }
-    
-    @PutMapping("/users/{id}")
-    @Operation(summary = "Update user", description = "Update an existing user")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "User updated successfully"),
-        @ApiResponse(responseCode = "404", description = "User not found"),
-        @ApiResponse(responseCode = "409", description = "Username or email already exists")
-    })
-    public ResponseEntity<UserDto> updateUser(@PathVariable Long id, @Valid @RequestBody UserDto dto) {
-        UserDto updated = roleManagementService.updateUser(id, dto);
-        return ResponseEntity.ok(updated);
-    }
-    
-    @DeleteMapping("/users/{id}")
-    @Operation(summary = "Delete user", description = "Delete a user from the system")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "204", description = "User deleted successfully"),
-        @ApiResponse(responseCode = "404", description = "User not found")
-    })
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-        roleManagementService.deleteUser(id);
-        return ResponseEntity.noContent().build();
     }
     
     // ===== Cache Management =====
