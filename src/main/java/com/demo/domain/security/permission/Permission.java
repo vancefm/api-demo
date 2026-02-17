@@ -1,13 +1,12 @@
 package com.demo.domain.security.permission;
 
+import com.demo.domain.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.LocalDateTime;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Entity representing a permission in the system.
@@ -20,12 +19,8 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class Permission {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@SuperBuilder
+public class Permission extends BaseEntity {
 
     @Column(nullable = false, length = 100)
     private String resourceType;
@@ -38,21 +33,4 @@ public class Permission {
 
     @Column(columnDefinition = "TEXT")
     private String fieldPermissions;
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
 }

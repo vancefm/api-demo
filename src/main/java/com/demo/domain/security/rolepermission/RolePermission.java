@@ -1,16 +1,14 @@
 package com.demo.domain.security.rolepermission;
 
+import com.demo.domain.BaseEntity;
+import com.demo.domain.security.permission.Permission;
+import com.demo.domain.security.role.Role;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.LocalDateTime;
-
-import com.demo.domain.security.permission.Permission;
-import com.demo.domain.security.role.Role;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Junction entity mapping roles to permissions (many-to-many relationship).
@@ -21,12 +19,8 @@ import com.demo.domain.security.role.Role;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class RolePermission {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@SuperBuilder
+public class RolePermission extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", nullable = false)
@@ -35,12 +29,4 @@ public class RolePermission {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "permission_id", nullable = false)
     private Permission permission;
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-    }
 }

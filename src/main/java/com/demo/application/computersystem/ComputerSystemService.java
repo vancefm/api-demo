@@ -7,7 +7,6 @@ import com.demo.application.user.UserRepository;
 import com.demo.shared.exception.DuplicateResourceException;
 import com.demo.shared.exception.ResourceNotFoundException;
 import com.demo.domain.computersystem.ComputerSystem;
-import com.demo.application.computersystem.ComputerSystemRepository;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.RequiredArgsConstructor;
