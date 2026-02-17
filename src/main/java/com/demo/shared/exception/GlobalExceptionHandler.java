@@ -3,8 +3,8 @@ package com.demo.shared.exception;
 import com.demo.shared.service.EmailNotificationService;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -30,14 +30,11 @@ import java.time.Instant;
  * 5. ProblemDetail response returned to client
  */
 @RestControllerAdvice
+@Slf4j
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
 
-    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
     private final EmailNotificationService emailNotificationService;
-
-    public GlobalExceptionHandler(EmailNotificationService emailNotificationService) {
-        this.emailNotificationService = emailNotificationService;
-    }
 
     /**
      * Handles ResourceNotFoundException (HTTP 404).
@@ -67,7 +64,7 @@ public class GlobalExceptionHandler {
                         "Method: " + request.getMethod() + "\nQuery: " + request.getQueryString()
                 );
             } catch (Exception emailEx) {
-                logger.warn("Failed to send error notification for 404", emailEx);
+                log.warn("Failed to send error notification for 404", emailEx);
                 // Don't let email failure impact API response
             }
         }
@@ -101,7 +98,7 @@ public class GlobalExceptionHandler {
                     "Method: " + request.getMethod() + "\nQuery: " + request.getQueryString()
             );
         } catch (Exception emailEx) {
-            logger.warn("Failed to send error notification for duplicate resource", emailEx);
+            log.warn("Failed to send error notification for duplicate resource", emailEx);
         }
 
         return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
@@ -152,7 +149,7 @@ public class GlobalExceptionHandler {
         problem.setProperty("timestamp", Instant.now());
 
         // Log validation errors for debugging
-        logger.debug("Validation error for {}: {}", request.getRequestURI(), errors);
+        log.debug("Validation error for {}: {}", request.getRequestURI(), errors);
 
         // Don't email validation errors - these are client mistakes, not server issues
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
@@ -170,7 +167,7 @@ public class GlobalExceptionHandler {
             CallNotPermittedException ex,
             HttpServletRequest request) {
         
-        logger.warn("Circuit breaker is OPEN for request to: {}", request.getRequestURI());
+        log.warn("Circuit breaker is OPEN for request to: {}", request.getRequestURI());
         
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.SERVICE_UNAVAILABLE);
         problem.setTitle("Service Temporarily Unavailable");
@@ -194,7 +191,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
         
         // Log full stack trace for debugging
-        logger.error("Unhandled exception in API: {}", request.getRequestURI(), ex);
+        log.error("Unhandled exception in API: {}", request.getRequestURI(), ex);
         
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
         problem.setTitle("Internal Server Error");
@@ -211,7 +208,7 @@ public class GlobalExceptionHandler {
             );
         } catch (Exception emailEx) {
             // Email service might be down (circuit breaker fallback already logged)
-            logger.error("Failed to send critical error alert email", emailEx);
+            log.error("Failed to send critical error alert email", emailEx);
         }
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problem);

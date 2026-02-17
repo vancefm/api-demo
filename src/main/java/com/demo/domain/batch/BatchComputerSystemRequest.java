@@ -4,7 +4,11 @@ import com.demo.domain.computersystem.ComputerSystemDto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.List;
 
@@ -35,7 +39,7 @@ import java.util.List;
  *       "hostname": "SERVER-001",
  *       "manufacturer": "Dell",
  *       "model": "PowerEdge R750",
- *       "user": "john.doe",
+ *       "userId": 1,
  *       "department": "IT",
  *       "macAddress": "00:1A:2B:3C:4D:5E",
  *       "ipAddress": "192.168.1.100",
@@ -45,7 +49,7 @@ import java.util.List;
  *       "hostname": "SERVER-002",
  *       "manufacturer": "Dell",
  *       "model": "PowerEdge R750",
- *       "user": "jane.smith",
+ *       "userId": 2,
  *       "department": "IT",
  *       "macAddress": "00:1A:2B:3C:4D:5F",
  *       "ipAddress": "192.168.1.101",
@@ -68,6 +72,11 @@ import java.util.List;
  * @see GlobalExceptionHandler for error response handling
  */
 @Schema(description = "Batch request wrapper for multiple computer systems")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class BatchComputerSystemRequest {
 
     @NotEmpty(message = "Batch items cannot be empty - at least 1 item required")
@@ -77,39 +86,4 @@ public class BatchComputerSystemRequest {
         example = "[{\"hostname\":\"SERVER-001\",...}]"
     )
     private List<ComputerSystemDto> items;
-
-    // Constructors
-    public BatchComputerSystemRequest() {
-    }
-
-    public BatchComputerSystemRequest(List<ComputerSystemDto> items) {
-        this.items = items;
-    }
-
-    // Getters and Setters
-    public List<ComputerSystemDto> getItems() {
-        return items;
-    }
-
-    public void setItems(List<ComputerSystemDto> items) {
-        this.items = items;
-    }
-
-    // Builder pattern
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    public static class Builder {
-        private List<ComputerSystemDto> items;
-
-        public Builder items(List<ComputerSystemDto> items) {
-            this.items = items;
-            return this;
-        }
-
-        public BatchComputerSystemRequest build() {
-            return new BatchComputerSystemRequest(items);
-        }
-    }
 }

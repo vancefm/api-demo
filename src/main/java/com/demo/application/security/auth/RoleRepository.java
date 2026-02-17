@@ -1,6 +1,6 @@
-package com.demo.application.security;
+package com.demo.application.security.auth;
 
-import com.demo.domain.security.Role;
+import com.demo.domain.security.role.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

@@ -2,8 +2,7 @@ package com.demo.shared.service;
 
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -27,9 +26,8 @@ import java.time.format.DateTimeFormatter;
  * - HALF_OPEN: Testing recovery, limited emails sent to verify service is back up
  */
 @Service
+@Slf4j
 public class EmailNotificationService {
-
-    private static final Logger logger = LoggerFactory.getLogger(EmailNotificationService.class);
 
     private final JavaMailSender mailSender;
     private final String adminEmail;
@@ -71,9 +69,9 @@ public class EmailNotificationService {
             message.setText(buildEmailBody(exception, endpoint, requestDetails));
 
             mailSender.send(message);
-            logger.debug("Error notification email sent successfully for: {}", exception.getClass().getSimpleName());
+            log.debug("Error notification email sent successfully for: {}", exception.getClass().getSimpleName());
         } catch (Exception e) {
-            logger.error("Failed to send error notification email", e);
+            log.error("Failed to send error notification email", e);
             // Exception will be caught by circuit breaker and fallback called
             throw new RuntimeException("Failed to send error notification via email", e);
         }
@@ -93,15 +91,15 @@ public class EmailNotificationService {
      */
     public void sendErrorNotificationFallback(Exception exception, String endpoint, String requestDetails,
                                              CallNotPermittedException circuitException) {
-        logger.warn("========================================");
-        logger.warn("CIRCUIT BREAKER OPEN: Email service unavailable");
-        logger.warn("========================================");
-        logger.error("Error notification that would have been emailed:", exception);
-        logger.error("Endpoint: {}", endpoint);
-        logger.error("Details: {}", requestDetails);
-        logger.error("Admin would have been notified at: {}", adminEmail);
-        logger.warn("Notification stored in logs instead of sending email");
-        logger.warn("========================================");
+        log.warn("========================================");
+        log.warn("CIRCUIT BREAKER OPEN: Email service unavailable");
+        log.warn("========================================");
+        log.error("Error notification that would have been emailed:", exception);
+        log.error("Endpoint: {}", endpoint);
+        log.error("Details: {}", requestDetails);
+        log.error("Admin would have been notified at: {}", adminEmail);
+        log.warn("Notification stored in logs instead of sending email");
+        log.warn("========================================");
         
         // In production, you could also:
         // - Write to database for later processing
@@ -126,9 +124,9 @@ public class EmailNotificationService {
             message.setText(buildCriticalEmailBody(exception, endpoint));
 
             mailSender.send(message);
-            logger.warn("Critical error alert email sent");
+            log.warn("Critical error alert email sent");
         } catch (Exception e) {
-            logger.error("Failed to send critical error email", e);
+            log.error("Failed to send critical error email", e);
             // Exception will be caught by circuit breaker and fallback called
             throw new RuntimeException("Failed to send critical alert via email", e);
         }
@@ -144,13 +142,13 @@ public class EmailNotificationService {
      */
     public void sendCriticalErrorAlertFallback(Exception exception, String endpoint,
                                               CallNotPermittedException circuitException) {
-        logger.error("========================================");
-        logger.error("CRITICAL: Cannot send alert email - email service is DOWN");
-        logger.error("Affected Endpoint: {}", endpoint);
-        logger.error("========================================");
-        logger.error("Critical exception:", exception);
-        logger.error("Admin should be notified immediately at: {}", adminEmail);
-        logger.error("========================================");
+        log.error("========================================");
+        log.error("CRITICAL: Cannot send alert email - email service is DOWN");
+        log.error("Affected Endpoint: {}", endpoint);
+        log.error("========================================");
+        log.error("Critical exception:", exception);
+        log.error("Admin should be notified immediately at: {}", adminEmail);
+        log.error("========================================");
         
         // In production, send critical alert via alternative channel:
         // - Call admin phone number

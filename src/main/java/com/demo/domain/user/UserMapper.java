@@ -1,7 +1,5 @@
-package com.demo.application.security;
+package com.demo.domain.user;
 
-import com.demo.domain.user.User;
-import com.demo.domain.user.UserDto;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
@@ -18,14 +16,17 @@ public interface UserMapper {
 
     @Mapping(source = "role.id", target = "roleId")
     @Mapping(source = "role.name", target = "roleName")
+    @Mapping(source = "manager.id", target = "managerId")
     UserDto toDto(User entity);
 
     @Mapping(target = "role", ignore = true)
+    @Mapping(target = "manager", ignore = true)
     @Mapping(target = "passwordHash", ignore = true)
     User toEntity(UserDto dto);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "role", ignore = true)
+    @Mapping(target = "manager", ignore = true)
     @Mapping(target = "passwordHash", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)

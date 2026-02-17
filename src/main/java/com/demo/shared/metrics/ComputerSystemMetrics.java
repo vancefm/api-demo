@@ -1,12 +1,12 @@
 package com.demo.shared.metrics;
 
 import io.micrometer.core.instrument.MeterRegistry;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import com.demo.application.computersystem.ComputerSystemRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Custom metrics provider for computer systems.
@@ -14,18 +14,12 @@ import org.slf4j.LoggerFactory;
  * Access metrics at: /actuator/metrics or /actuator/metrics/app.computersystems.total
  */
 @Component
+@Slf4j
+@RequiredArgsConstructor
 public class ComputerSystemMetrics {
-    
-    private static final Logger logger = LoggerFactory.getLogger(ComputerSystemMetrics.class);
     
     private final MeterRegistry meterRegistry;
     private final ComputerSystemRepository computerSystemRepository;
-    
-    public ComputerSystemMetrics(MeterRegistry meterRegistry, 
-                                 ComputerSystemRepository computerSystemRepository) {
-        this.meterRegistry = meterRegistry;
-        this.computerSystemRepository = computerSystemRepository;
-    }
     
     /**
      * Registers custom metrics on application startup.
@@ -33,7 +27,7 @@ public class ComputerSystemMetrics {
      */
     @EventListener(ApplicationReadyEvent.class)
     public void registerMetrics() {
-        logger.info("Registering custom computer system metrics");
+        log.info("Registering custom computer system metrics");
         
         // Register gauge for total computer systems
         meterRegistry.gauge(
@@ -42,6 +36,6 @@ public class ComputerSystemMetrics {
             ComputerSystemRepository::count
         );
         
-        logger.info("Custom metrics registered successfully");
+        log.info("Custom metrics registered successfully");
     }
 }

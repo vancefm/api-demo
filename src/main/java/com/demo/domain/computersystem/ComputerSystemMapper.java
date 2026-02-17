@@ -1,7 +1,5 @@
-package com.demo.application.computersystem;
+package com.demo.domain.computersystem;
 
-import com.demo.domain.computersystem.ComputerSystem;
-import com.demo.domain.computersystem.ComputerSystemDto;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
@@ -12,10 +10,14 @@ import org.mapstruct.MappingTarget;
 @Mapper(componentModel = "spring")
 public interface ComputerSystemMapper {
 
+    @Mapping(source = "systemUser.id", target = "userId")
     ComputerSystemDto toDto(ComputerSystem entity);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "systemUser", ignore = true)
+    @Mapping(target = "createdBy", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
     ComputerSystem toEntity(ComputerSystemDto dto);
 
     @Mapping(target = "id", ignore = true)

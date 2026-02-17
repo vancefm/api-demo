@@ -1,8 +1,5 @@
-package com.demo.application.security;
+package com.demo.application.security.token;
 
-import com.demo.application.security.token.ApiToken;
-import com.demo.application.security.token.ApiTokenRepository;
-import com.demo.application.security.token.ApiTokenService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

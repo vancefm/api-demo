@@ -1,7 +1,5 @@
-package com.demo.application.security;
+package com.demo.domain.security.permission;
 
-import com.demo.domain.security.Permission;
-import com.demo.domain.security.dto.PermissionDto;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;

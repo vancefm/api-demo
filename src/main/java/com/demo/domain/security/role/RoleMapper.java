@@ -1,7 +1,5 @@
-package com.demo.application.security;
+package com.demo.domain.security.role;
 
-import com.demo.domain.security.Role;
-import com.demo.domain.security.dto.RoleDto;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;

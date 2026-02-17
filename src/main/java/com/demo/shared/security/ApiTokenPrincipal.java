@@ -1,23 +1,15 @@
 package com.demo.shared.security;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
 /**
  * Security principal representing an API token authentication.
  */
+@Getter
+@RequiredArgsConstructor
 public class ApiTokenPrincipal {
     
     private final String token;
     private final String clientId;
-    
-    public ApiTokenPrincipal(String token, String clientId) {
-        this.token = token;
-        this.clientId = clientId;
-    }
-    
-    public String getToken() {
-        return token;
-    }
-    
-    public String getClientId() {
-        return clientId;
-    }
 }

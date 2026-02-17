@@ -52,7 +52,7 @@ class ComputerSystemControllerTest {
                 .hostname("SERVER-001")
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
-                .user("john.doe")
+                .userId(1L)
                 .department("IT")
                 .macAddress("00:1A:2B:3C:4D:5E")
                 .ipAddress("192.168.1.100")

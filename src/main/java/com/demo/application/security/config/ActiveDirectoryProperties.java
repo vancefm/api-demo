@@ -1,8 +1,12 @@
 package com.demo.application.security.config;
 
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "security.active-directory")
+@Getter
+@Setter
 public class ActiveDirectoryProperties {
     /**
      * Enable Active Directory authentication.
@@ -48,76 +52,4 @@ public class ActiveDirectoryProperties {
      * Manager password for group searches (optional).
      */
     private String managerPassword = "";
-
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-    }
-
-    public String getUrl() {
-        return url;
-    }
-
-    public void setUrl(String url) {
-        this.url = url;
-    }
-
-    public String getDomain() {
-        return domain;
-    }
-
-    public void setDomain(String domain) {
-        this.domain = domain;
-    }
-
-    public String getRootDn() {
-        return rootDn;
-    }
-
-    public void setRootDn(String rootDn) {
-        this.rootDn = rootDn;
-    }
-
-    public String getUserSearchFilter() {
-        return userSearchFilter;
-    }
-
-    public void setUserSearchFilter(String userSearchFilter) {
-        this.userSearchFilter = userSearchFilter;
-    }
-
-    public String getGroupSearchBase() {
-        return groupSearchBase;
-    }
-
-    public void setGroupSearchBase(String groupSearchBase) {
-        this.groupSearchBase = groupSearchBase;
-    }
-
-    public String getGroupSearchFilter() {
-        return groupSearchFilter;
-    }
-
-    public void setGroupSearchFilter(String groupSearchFilter) {
-        this.groupSearchFilter = groupSearchFilter;
-    }
-
-    public String getManagerDn() {
-        return managerDn;
-    }
-
-    public void setManagerDn(String managerDn) {
-        this.managerDn = managerDn;
-    }
-
-    public String getManagerPassword() {
-        return managerPassword;
-    }
-
-    public void setManagerPassword(String managerPassword) {
-        this.managerPassword = managerPassword;
-    }
 }
