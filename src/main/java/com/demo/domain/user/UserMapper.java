@@ -22,12 +22,18 @@ public interface UserMapper {
     @Mapping(target = "role", ignore = true)
     @Mapping(target = "manager", ignore = true)
     @Mapping(target = "passwordHash", ignore = true)
+    @Mapping(target = "createdBy", ignore = true)
+    @Mapping(target = "updatedBy", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
     User toEntity(UserDto dto);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "role", ignore = true)
     @Mapping(target = "manager", ignore = true)
     @Mapping(target = "passwordHash", ignore = true)
+    @Mapping(target = "createdBy", ignore = true)
+    @Mapping(target = "updatedBy", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     void updateEntityFromDto(UserDto dto, @MappingTarget User entity);

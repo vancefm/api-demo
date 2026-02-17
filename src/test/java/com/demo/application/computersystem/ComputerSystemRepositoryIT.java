@@ -5,16 +5,21 @@ import com.demo.application.user.UserRepository;
 import com.demo.domain.computersystem.ComputerSystem;
 import com.demo.domain.security.role.Role;
 import com.demo.domain.user.User;
+import com.demo.shared.config.JpaAuditingConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.test.context.support.WithMockUser;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
+@Import(JpaAuditingConfig.class)
+@WithMockUser(username = "admin")
 class ComputerSystemRepositoryIT {
 
     @Autowired

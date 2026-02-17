@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-@WithMockUser(roles = "MY_APP_USER")
+@WithMockUser(username = "john.doe", roles = "MY_APP_USER")
 class ComputerSystemIntegrationIT {
 
     @Autowired

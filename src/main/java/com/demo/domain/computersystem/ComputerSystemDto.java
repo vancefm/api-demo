@@ -54,4 +54,16 @@ public class ComputerSystemDto {
     @NotBlank(message = "Network name is required")
     @Schema(description = "Network name", example = "PROD-NETWORK")
     private String networkName;
+
+    @Schema(description = "ID of the user who created this record", example = "1", accessMode = Schema.AccessMode.READ_ONLY)
+    private Long createdById;
+
+    @Schema(description = "ID of the user who last updated this record", example = "2", accessMode = Schema.AccessMode.READ_ONLY)
+    private Long updatedById;
+
+    @Schema(description = "Timestamp when this record was created", accessMode = Schema.AccessMode.READ_ONLY)
+    private java.time.LocalDateTime createdAt;
+
+    @Schema(description = "Timestamp when this record was last updated", accessMode = Schema.AccessMode.READ_ONLY)
+    private java.time.LocalDateTime updatedAt;
 }

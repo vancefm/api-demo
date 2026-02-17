@@ -26,10 +26,10 @@ public class FieldPermissionsConfig {
     
     private void initializeComputerSystemFields() {
         // Immutable fields for ComputerSystem (cannot change after creation)
-        immutableFields.put("ComputerSystem", Set.of("id", "createdAt", "createdBy"));
+        immutableFields.put("ComputerSystem", Set.of("id", "createdAt", "createdById"));
         
         // Read-only fields for ComputerSystem (can read but not write)
-        readOnlyFields.put("ComputerSystem", Set.of("updatedAt"));
+        readOnlyFields.put("ComputerSystem", Set.of("updatedAt", "updatedById"));
         
         // Hidden fields are role-dependent and handled by AuthorizationService
         hiddenFields.put("ComputerSystem", new HashSet<>());

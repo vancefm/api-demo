@@ -42,8 +42,4 @@ public class ComputerSystem extends BaseEntity {
 
     @Column(nullable = false)
     private String networkName;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by")
-    private User createdBy;
 }

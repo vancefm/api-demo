@@ -11,11 +11,14 @@ import org.mapstruct.MappingTarget;
 public interface ComputerSystemMapper {
 
     @Mapping(source = "systemUser.id", target = "userId")
+    @Mapping(source = "createdBy.id", target = "createdById")
+    @Mapping(source = "updatedBy.id", target = "updatedById")
     ComputerSystemDto toDto(ComputerSystem entity);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "systemUser", ignore = true)
     @Mapping(target = "createdBy", ignore = true)
+    @Mapping(target = "updatedBy", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     ComputerSystem toEntity(ComputerSystemDto dto);
@@ -23,6 +26,7 @@ public interface ComputerSystemMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "systemUser", ignore = true)
     @Mapping(target = "createdBy", ignore = true)
+    @Mapping(target = "updatedBy", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     void updateEntityFromDto(ComputerSystemDto dto, @MappingTarget ComputerSystem entity);
