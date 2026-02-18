@@ -36,20 +36,20 @@ public abstract class BaseEntity {
     private Long id;
 
     @CreatedDate
-    @Column(updatable = false)
+    @Column(updatable = false, nullable = false)
     private LocalDateTime createdAt;
 
     @LastModifiedDate
-    @Column
+    @Column(nullable = false) 
     private LocalDateTime updatedAt;
 
     @CreatedBy
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by", updatable = false)
     private User createdBy;
 
     @LastModifiedBy
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "updated_by")
     private User updatedBy;
 }
