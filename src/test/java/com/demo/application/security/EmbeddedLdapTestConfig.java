@@ -1,5 +1,6 @@
 package com.demo.application.security;
 
+import com.demo.application.security.db.DbUserDetailsService;
 import com.unboundid.ldap.listener.InMemoryDirectoryServer;
 import com.unboundid.ldap.listener.InMemoryDirectoryServerConfig;
 import com.unboundid.ldap.listener.InMemoryListenerConfig;
@@ -7,9 +8,14 @@ import com.unboundid.ldif.LDIFReader;
 import jakarta.annotation.PreDestroy;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.ldap.DefaultSpringSecurityContextSource;
 import org.springframework.security.ldap.authentication.BindAuthenticator;
 import org.springframework.security.ldap.authentication.LdapAuthenticationProvider;
@@ -82,6 +88,26 @@ public class EmbeddedLdapTestConfig {
                 new LdapAuthenticationProvider(authenticator, authoritiesPopulator);
         provider.setAuthoritiesMapper(this::mapAuthorities);
         return provider;
+    }
+
+    /**
+     * Provides the primary {@link AuthenticationManager} for integration tests.
+     *
+     * <p>The embedded LDAP provider is tried first, with the DB/DAO provider as
+     * fallback. This bean takes precedence over the production {@code SecurityConfig}
+     * authentication manager so that tests authenticate against the in-memory LDAP
+     * server rather than a real Active Directory instance.</p>
+     */
+    @Bean
+    @Primary
+    public AuthenticationManager embeddedLdapAuthenticationManager(
+            LdapAuthenticationProvider ldapAuthenticationProvider,
+            PasswordEncoder passwordEncoder,
+            DbUserDetailsService dbUserDetailsService) {
+        DaoAuthenticationProvider daoProvider = new DaoAuthenticationProvider();
+        daoProvider.setUserDetailsService(dbUserDetailsService);
+        daoProvider.setPasswordEncoder(passwordEncoder);
+        return new ProviderManager(ldapAuthenticationProvider, daoProvider);
     }
 
     /**
