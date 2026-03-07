@@ -45,6 +45,10 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "manager_id")
+    private User manager;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();

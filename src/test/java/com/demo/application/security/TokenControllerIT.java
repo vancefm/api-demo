@@ -1,7 +1,8 @@
 package com.demo.application.security;
 
-import com.demo.domain.security.Role;
+import com.demo.domain.security.role.Role;
 import com.demo.domain.user.User;
+import com.demo.application.security.auth.RoleRepository;
 import com.demo.application.user.UserRepository;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
