@@ -18,7 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class TokenControllerIT {
+public class TokenControllerIT {
 
     @Autowired
     private MockMvc mockMvc;
@@ -34,7 +34,7 @@ class TokenControllerIT {
 
     @Test
     @WithMockUser(roles = {"MY_APP_SUPERADMIN"})
-    void createTokenAsAdmin() throws Exception {
+    public void createTokenAsAdmin() throws Exception {
         Role role = roleRepository.findByName("MY_APP_USER")
                 .orElseGet(() -> {
                     Role r = new Role();

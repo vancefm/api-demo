@@ -10,7 +10,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.ldap.authentication.LdapAuthenticationProvider;
 import org.springframework.security.ldap.authentication.ad.ActiveDirectoryLdapAuthenticationProvider;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.http.HttpMethod;
@@ -35,23 +34,21 @@ public class SecurityConfig {
     private final JwtService jwtService;
     private final DbUserDetailsService dbUserDetailsService;
     private final ObjectProvider<ActiveDirectoryLdapAuthenticationProvider> activeDirectoryAuthenticationProvider;
-    private final ObjectProvider<LdapAuthenticationProvider> ldapAuthenticationProvider;
 
     public SecurityConfig(JwtService jwtService,
                           DbUserDetailsService dbUserDetailsService,
-                          ObjectProvider<ActiveDirectoryLdapAuthenticationProvider> activeDirectoryAuthenticationProvider,
-                          ObjectProvider<LdapAuthenticationProvider> ldapAuthenticationProvider) {
+                          ObjectProvider<ActiveDirectoryLdapAuthenticationProvider> activeDirectoryAuthenticationProvider) {
         this.jwtService = jwtService;
         this.dbUserDetailsService = dbUserDetailsService;
         this.activeDirectoryAuthenticationProvider = activeDirectoryAuthenticationProvider;
-        this.ldapAuthenticationProvider = ldapAuthenticationProvider;
     }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        // Strength is configured via application.yml (BCrypt rounds)
+        // BCrypt with default strength (10 rounds); suitable for DB-stored credentials.
         return new BCryptPasswordEncoder();
     }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    PasswordEncoder passwordEncoder,
@@ -72,11 +69,11 @@ public class SecurityConfig {
         return http.build();
     }
 
-    @Bean
     /**
      * Builds the JWT authentication filter that validates Bearer tokens and
      * establishes the Spring Security context for authenticated requests.
      */
+    @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter(PasswordEncoder passwordEncoder,
                                                            ApiTokenRepository apiTokenRepository,
                                                            UserRepository userRepository) {
@@ -89,13 +86,10 @@ public class SecurityConfig {
         daoProvider.setUserDetailsService(dbUserDetailsService);
         daoProvider.setPasswordEncoder(passwordEncoder);
 
-        // Provider order: LDAP first (if available), then Active Directory (if enabled), then DB fallback
+        // Provider order: Active Directory first (when enabled), then DB/DAO fallback.
+        // The AD provider bean is conditionally present; it is only included when
+        // security.active-directory.enabled=true is set in configuration.
         List<AuthenticationProvider> providers = new ArrayList<>();
-
-        LdapAuthenticationProvider ldapProvider = ldapAuthenticationProvider.getIfAvailable();
-        if (ldapProvider != null) {
-            providers.add(ldapProvider);
-        }
 
         ActiveDirectoryLdapAuthenticationProvider adProvider = activeDirectoryAuthenticationProvider.getIfAvailable();
         if (adProvider != null) {
