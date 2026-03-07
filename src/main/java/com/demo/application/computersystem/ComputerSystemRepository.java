@@ -22,11 +22,11 @@ public interface ComputerSystemRepository extends JpaRepository<ComputerSystem, 
     @Query("SELECT cs FROM ComputerSystem cs WHERE " +
            "(:hostname IS NULL OR cs.hostname LIKE %:hostname%) AND " +
            "(:department IS NULL OR cs.department = :department) AND " +
-           "(:user IS NULL OR cs.systemUser LIKE %:user%)")
+           "(:userId IS NULL OR cs.systemUser.id = :userId)")
     Page<ComputerSystem> findByFilters(
             @Param("hostname") String hostname,
             @Param("department") String department,
-            @Param("user") String user,
+            @Param("userId") Long userId,
             Pageable pageable
     );
 

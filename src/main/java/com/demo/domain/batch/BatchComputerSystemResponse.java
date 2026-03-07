@@ -2,6 +2,12 @@ package com.demo.domain.batch;
 
 import com.demo.domain.computersystem.ComputerSystemDto;
 import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -34,6 +40,11 @@ import java.util.List;
  * @see BatchComputerSystemController for usage
  */
 @Schema(description = "Response for batch computer system operations")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class BatchComputerSystemResponse {
 
     @Schema(description = "List of processed items")
@@ -53,110 +64,6 @@ public class BatchComputerSystemResponse {
     private String status;
 
     @Schema(description = "Operation timestamp")
-    private LocalDateTime timestamp;
-
-    // Constructors
-    public BatchComputerSystemResponse() {
-    }
-
-    public BatchComputerSystemResponse(List<ComputerSystemDto> items, int totalItems, 
-                                      int successCount, int failureCount, String status) {
-        this.items = items;
-        this.totalItems = totalItems;
-        this.successCount = successCount;
-        this.failureCount = failureCount;
-        this.status = status;
-        this.timestamp = LocalDateTime.now();
-    }
-
-    // Getters and Setters
-    public List<ComputerSystemDto> getItems() {
-        return items;
-    }
-
-    public void setItems(List<ComputerSystemDto> items) {
-        this.items = items;
-    }
-
-    public int getTotalItems() {
-        return totalItems;
-    }
-
-    public void setTotalItems(int totalItems) {
-        this.totalItems = totalItems;
-    }
-
-    public int getSuccessCount() {
-        return successCount;
-    }
-
-    public void setSuccessCount(int successCount) {
-        this.successCount = successCount;
-    }
-
-    public int getFailureCount() {
-        return failureCount;
-    }
-
-    public void setFailureCount(int failureCount) {
-        this.failureCount = failureCount;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public LocalDateTime getTimestamp() {
-        return timestamp;
-    }
-
-    public void setTimestamp(LocalDateTime timestamp) {
-        this.timestamp = timestamp;
-    }
-
-    // Builder pattern
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    public static class Builder {
-        private List<ComputerSystemDto> items;
-        private int totalItems;
-        private int successCount;
-        private int failureCount;
-        private String status;
-
-        public Builder items(List<ComputerSystemDto> items) {
-            this.items = items;
-            return this;
-        }
-
-        public Builder totalItems(int totalItems) {
-            this.totalItems = totalItems;
-            return this;
-        }
-
-        public Builder successCount(int successCount) {
-            this.successCount = successCount;
-            return this;
-        }
-
-        public Builder failureCount(int failureCount) {
-            this.failureCount = failureCount;
-            return this;
-        }
-
-        public Builder status(String status) {
-            this.status = status;
-            return this;
-        }
-
-        public BatchComputerSystemResponse build() {
-            return new BatchComputerSystemResponse(items, totalItems, successCount, failureCount, status);
-        }
-    }
+    @Builder.Default
+    private LocalDateTime timestamp = LocalDateTime.now();
 }

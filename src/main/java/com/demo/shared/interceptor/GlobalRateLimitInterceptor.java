@@ -4,8 +4,7 @@ import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -20,15 +19,15 @@ import org.springframework.web.servlet.HandlerInterceptor;
  */
 @Component
 @ConditionalOnBean(RateLimiterRegistry.class)
+@Slf4j
 public class GlobalRateLimitInterceptor implements HandlerInterceptor {
 
-    private static final Logger logger = LoggerFactory.getLogger(GlobalRateLimitInterceptor.class);
     private final RateLimiter rateLimiter;
 
     public GlobalRateLimitInterceptor(RateLimiterRegistry rateLimiterRegistry) {
         // Get the global rate limiter instance configured in application.yml
         this.rateLimiter = rateLimiterRegistry.rateLimiter("global-api");
-        logger.info("Global rate limiting initialized successfully");
+        log.info("Global rate limiting initialized successfully");
     }
 
     @Override
@@ -44,12 +43,12 @@ public class GlobalRateLimitInterceptor implements HandlerInterceptor {
         if (rateLimiter.acquirePermission()) {
             // Request allowed - add metrics headers
             addRateLimitHeaders(response);
-            logger.debug("Request allowed - Available permits: {}", 
+            log.debug("Request allowed - Available permits: {}", 
                     rateLimiter.getMetrics().getNumberOfWaitingThreads());
             return true;
         } else {
             // Rate limit exceeded - reject request with 429
-            logger.warn("Rate limit exceeded for IP: {}", getClientIp(request));
+            log.warn("Rate limit exceeded for IP: {}", getClientIp(request));
             response.setStatus(429);
             response.setContentType("application/json");
             response.getWriter().write(

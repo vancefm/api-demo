@@ -1,13 +1,15 @@
 package com.demo.application.computersystem;
 
 import com.demo.domain.computersystem.ComputerSystemDto;
+import com.demo.domain.computersystem.ComputerSystemMapper;
+import com.demo.domain.user.User;
+import com.demo.application.user.UserRepository;
 import com.demo.shared.exception.DuplicateResourceException;
 import com.demo.shared.exception.ResourceNotFoundException;
 import com.demo.domain.computersystem.ComputerSystem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -28,20 +30,36 @@ class ComputerSystemServiceTest {
     @Mock
     private ComputerSystemRepository repository;
 
-    @InjectMocks
+    @Mock
+    private UserRepository userRepository;
+
+    private ComputerSystemMapper mapper;
+
     private ComputerSystemService service;
 
     private ComputerSystem testComputerSystem;
     private ComputerSystemDto testDto;
+    private User testUser;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
+        Class<?> implClass = Class.forName(ComputerSystemMapper.class.getName() + "Impl");
+        mapper = (ComputerSystemMapper) implClass.getDeclaredConstructor().newInstance();
+        service = new ComputerSystemService(repository, userRepository, mapper);
+
+        testUser = User.builder()
+                .id(1L)
+                .username("john.doe")
+                .email("john.doe@example.com")
+                .department("IT")
+                .build();
+
         testComputerSystem = ComputerSystem.builder()
                 .id(1L)
                 .hostname("SERVER-001")
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
-                .user("john.doe")
+                .systemUser(testUser)
                 .department("IT")
                 .macAddress("00:1A:2B:3C:4D:5E")
                 .ipAddress("192.168.1.100")
@@ -53,7 +71,7 @@ class ComputerSystemServiceTest {
                 .hostname("SERVER-001")
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
-                .user("john.doe")
+                .userId(1L)
                 .department("IT")
                 .macAddress("00:1A:2B:3C:4D:5E")
                 .ipAddress("192.168.1.100")
@@ -66,6 +84,7 @@ class ComputerSystemServiceTest {
         when(repository.findByHostname(testDto.getHostname())).thenReturn(Optional.empty());
         when(repository.findByMacAddress(testDto.getMacAddress())).thenReturn(Optional.empty());
         when(repository.findByIpAddress(testDto.getIpAddress())).thenReturn(Optional.empty());
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(repository.save(any(ComputerSystem.class))).thenReturn(testComputerSystem);
 
         ComputerSystemDto result = service.createComputerSystem(testDto);
@@ -124,6 +143,7 @@ class ComputerSystemServiceTest {
     @Test
     void testUpdateComputerSystem_Success() {
         when(repository.findById(1L)).thenReturn(Optional.of(testComputerSystem));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(repository.save(any(ComputerSystem.class))).thenReturn(testComputerSystem);
 
         ComputerSystemDto result = service.updateComputerSystem(1L, testDto);

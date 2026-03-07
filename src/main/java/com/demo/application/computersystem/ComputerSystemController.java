@@ -1,7 +1,6 @@
 package com.demo.application.computersystem;
 
 import com.demo.domain.computersystem.ComputerSystemDto;
-import com.demo.application.computersystem.ComputerSystemService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -97,10 +96,10 @@ public class ComputerSystemController {
     public ResponseEntity<Page<ComputerSystemDto>> filterComputerSystems(
             @RequestParam(required = false) String hostname,
             @RequestParam(required = false) String department,
-            @RequestParam(required = false) String user,
+            @RequestParam(required = false) Long userId,
             @PageableDefault(size = 20, page = 0, sort = "id", direction = Sort.Direction.ASC) Pageable pageable) {
         Page<ComputerSystemDto> computerSystems = computerSystemService.filterComputerSystems(
-                hostname, department, user, pageable);
+                hostname, department, userId, pageable);
         return ResponseEntity.ok(computerSystems);
     }
 

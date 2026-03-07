@@ -1,14 +1,14 @@
 package com.demo.shared.security;
 
-import com.demo.application.security.PermissionRepository;
-import com.demo.application.security.RolePermissionRepository;
-import com.demo.application.security.RoleRepository;
-import com.demo.domain.security.Permission;
-import com.demo.domain.security.Role;
-import com.demo.domain.security.RolePermission;
+import com.demo.domain.security.role.Role;
+import com.demo.application.security.auth.PermissionRepository;
+import com.demo.application.security.auth.RolePermissionRepository;
+import com.demo.application.security.auth.RoleRepository;
+import com.demo.domain.security.permission.Permission;
+import com.demo.domain.security.rolepermission.RolePermission;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -22,9 +22,9 @@ import java.util.Optional;
  * Service that initializes default roles and permissions on application startup.
  */
 @Service
+@Slf4j
+@RequiredArgsConstructor
 public class RoleInitializationService {
-    
-    private static final Logger logger = LoggerFactory.getLogger(RoleInitializationService.class);
     
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
@@ -32,22 +32,10 @@ public class RoleInitializationService {
     private final RolePermissionService rolePermissionService;
     private final ObjectMapper objectMapper;
     
-    public RoleInitializationService(RoleRepository roleRepository,
-                                    PermissionRepository permissionRepository,
-                                    RolePermissionRepository rolePermissionRepository,
-                                    RolePermissionService rolePermissionService,
-                                    ObjectMapper objectMapper) {
-        this.roleRepository = roleRepository;
-        this.permissionRepository = permissionRepository;
-        this.rolePermissionRepository = rolePermissionRepository;
-        this.rolePermissionService = rolePermissionService;
-        this.objectMapper = objectMapper;
-    }
-    
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void initializeDefaultRoles() {
-        logger.info("Initializing default roles and permissions");
+        log.info("Initializing default roles and permissions");
         
         // Create default roles if they don't exist
         Role superAdmin = createRoleIfNotExists("MY_APP_SUPERADMIN", 
@@ -69,13 +57,13 @@ public class RoleInitializationService {
         // Reload cache
         rolePermissionService.reloadCache();
         
-        logger.info("Default roles and permissions initialized successfully");
+        log.info("Default roles and permissions initialized successfully");
     }
     
     private Role createRoleIfNotExists(String name, String description) {
         Optional<Role> existingRole = roleRepository.findByName(name);
         if (existingRole.isPresent()) {
-            logger.debug("Role already exists: {}", name);
+            log.debug("Role already exists: {}", name);
             return existingRole.get();
         }
         
@@ -85,7 +73,7 @@ public class RoleInitializationService {
             .build();
         
         Role saved = roleRepository.save(role);
-        logger.info("Created role: {}", name);
+        log.info("Created role: {}", name);
         return saved;
     }
     
@@ -109,7 +97,7 @@ public class RoleInitializationService {
         
         Map<String, String> writeFieldPerms = new HashMap<>();
         // Cannot modify certain sensitive fields
-        writeFieldPerms.put("systemUser", "READ"); // Cannot change user
+        writeFieldPerms.put("userId", "READ"); // Cannot change user
         writeFieldPerms.put("department", "READ"); // Cannot change department
         writeFieldPerms.put("networkName", "READ"); // Cannot change network
         
@@ -128,7 +116,7 @@ public class RoleInitializationService {
         
         Map<String, String> writeFieldPerms = new HashMap<>();
         // Cannot modify these sensitive fields
-        writeFieldPerms.put("systemUser", "READ");
+        writeFieldPerms.put("userId", "READ");
         writeFieldPerms.put("department", "READ");
         writeFieldPerms.put("networkName", "READ");
         writeFieldPerms.put("macAddress", "READ");
@@ -150,7 +138,7 @@ public class RoleInitializationService {
         Permission permission;
         if (!existingPerms.isEmpty()) {
             permission = existingPerms.get(0);
-            logger.debug("Permission already exists: {} {} {}", resourceType, operation, scope);
+            log.debug("Permission already exists: {} {} {}", resourceType, operation, scope);
         } else {
             permission = Permission.builder()
                 .resourceType(resourceType)
@@ -159,7 +147,7 @@ public class RoleInitializationService {
                 .fieldPermissions(fieldPermissions)
                 .build();
             permission = permissionRepository.save(permission);
-            logger.debug("Created permission: {} {} {}", resourceType, operation, scope);
+            log.debug("Created permission: {} {} {}", resourceType, operation, scope);
         }
         
         // Check if role-permission mapping exists
@@ -169,7 +157,7 @@ public class RoleInitializationService {
                 .permission(permission)
                 .build();
             rolePermissionRepository.save(rolePermission);
-            logger.debug("Assigned permission to role: {}", role.getName());
+            log.debug("Assigned permission to role: {}", role.getName());
         }
     }
     
@@ -177,7 +165,7 @@ public class RoleInitializationService {
         try {
             return objectMapper.writeValueAsString(map);
         } catch (Exception e) {
-            logger.error("Error converting map to JSON: {}", e.getMessage());
+            log.error("Error converting map to JSON: {}", e.getMessage());
             return "{}";
         }
     }

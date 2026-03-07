@@ -1,21 +1,17 @@
 package com.demo.shared.security;
 
 import com.demo.domain.user.User;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Security principal representing an authenticated user.
  */
+@RequiredArgsConstructor
 public class CustomUserPrincipal {
     
+    @Getter
     private final User user;
-    
-    public CustomUserPrincipal(User user) {
-        this.user = user;
-    }
-    
-    public User getUser() {
-        return user;
-    }
     
     public String getUsername() {
         return user.getUsername();

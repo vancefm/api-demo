@@ -1,8 +1,9 @@
-package com.demo.application.security;
+package com.demo.application.security.auth;
 
-import com.demo.domain.security.Permission;
-import com.demo.domain.security.Role;
-import com.demo.domain.security.RolePermission;
+import com.demo.domain.security.role.Role;
+import com.demo.domain.security.permission.Permission;
+import com.demo.domain.security.rolepermission.RolePermission;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

@@ -2,8 +2,8 @@ package com.demo.shared.security;
 
 import com.demo.domain.computersystem.ComputerSystem;
 import com.demo.domain.user.User;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -12,15 +12,11 @@ import java.util.Map;
  * Service for checking object-level and field-level authorization.
  */
 @Service
+@Slf4j
+@RequiredArgsConstructor
 public class AuthorizationService {
     
-    private static final Logger logger = LoggerFactory.getLogger(AuthorizationService.class);
-    
     private final RolePermissionService rolePermissionService;
-    
-    public AuthorizationService(RolePermissionService rolePermissionService) {
-        this.rolePermissionService = rolePermissionService;
-    }
     
     /**
      * Check if a user can perform an operation on a resource type.

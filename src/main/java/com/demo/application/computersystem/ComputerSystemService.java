@@ -1,14 +1,16 @@
 package com.demo.application.computersystem;
 
 import com.demo.domain.computersystem.ComputerSystemDto;
+import com.demo.domain.computersystem.ComputerSystemMapper;
+import com.demo.domain.user.User;
+import com.demo.application.user.UserRepository;
 import com.demo.shared.exception.DuplicateResourceException;
 import com.demo.shared.exception.ResourceNotFoundException;
 import com.demo.domain.computersystem.ComputerSystem;
-import com.demo.application.computersystem.ComputerSystemRepository;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -32,15 +34,14 @@ import java.util.Collections;
  */
 @Service
 @Transactional
+@Slf4j
+@RequiredArgsConstructor
 public class ComputerSystemService {
 
-    private static final Logger logger = LoggerFactory.getLogger(ComputerSystemService.class);
     private static final String NOT_FOUND = " not found";
     private final ComputerSystemRepository repository;
-
-    public ComputerSystemService(ComputerSystemRepository repository) {
-        this.repository = repository;
-    }
+    private final UserRepository userRepository;
+    private final ComputerSystemMapper mapper;
 
     /**
      * Creates new computer system with database circuit breaker protection.
@@ -66,10 +67,13 @@ public class ComputerSystemService {
             throw new DuplicateResourceException("Computer system with IP address " + dto.getIpAddress() + " already exists");
         }
 
-        ComputerSystem computerSystem = mapToEntity(dto);
+        ComputerSystem computerSystem = mapper.toEntity(dto);
+        User assignedUser = userRepository.findById(dto.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User with id " + dto.getUserId() + NOT_FOUND));
+        computerSystem.setSystemUser(assignedUser);
         ComputerSystem savedSystem = repository.save(computerSystem);
 
-        return mapToDto(savedSystem);
+        return mapper.toDto(savedSystem);
     }
 
     /**
@@ -78,7 +82,7 @@ public class ComputerSystemService {
      */
     public ComputerSystemDto createComputerSystemFallback(ComputerSystemDto dto,
                                                          CallNotPermittedException ex) {
-        logger.error("Database circuit breaker OPEN: Cannot create computer system - database unavailable");
+        log.error("Database circuit breaker OPEN: Cannot create computer system - database unavailable");
         throw new RuntimeException("Database service temporarily unavailable. Please try again later.");
     }
 
@@ -95,7 +99,7 @@ public class ComputerSystemService {
         ComputerSystem computerSystem = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Computer system with id " + id + NOT_FOUND));
 
-        return mapToDto(computerSystem);
+        return mapper.toDto(computerSystem);
     }
 
     /**
@@ -103,7 +107,7 @@ public class ComputerSystemService {
      */
     public ComputerSystemDto getComputerSystemByIdFallback(Long id,
                                                           CallNotPermittedException ex) {
-        logger.error("Database circuit breaker OPEN: Cannot retrieve computer system {} - database unavailable", id);
+        log.error("Database circuit breaker OPEN: Cannot retrieve computer system {} - database unavailable", id);
         throw new RuntimeException("Database service temporarily unavailable. Please try again later.");
     }
 
@@ -116,7 +120,7 @@ public class ComputerSystemService {
     @Transactional(readOnly = true)
     @CircuitBreaker(name = "databaseQuery", fallbackMethod = "getAllComputerSystemsFallback")
     public Page<ComputerSystemDto> getAllComputerSystems(Pageable pageable) {
-        return repository.findAll(pageable).map(this::mapToDto);
+        return repository.findAll(pageable).map(mapper::toDto);
     }
 
     /**
@@ -125,17 +129,17 @@ public class ComputerSystemService {
      */
     public Page<ComputerSystemDto> getAllComputerSystemsFallback(Pageable pageable,
                                                                 CallNotPermittedException ex) {
-        logger.error("Database circuit breaker OPEN: Cannot retrieve computer systems - database unavailable");
+        log.error("Database circuit breaker OPEN: Cannot retrieve computer systems - database unavailable");
         // Return empty page instead of error
         return new PageImpl<>(Collections.emptyList(), pageable, 0);
     }
 
     /**
-     * Filters computer systems by hostname, department, or user with circuit breaker protection.
+     * Filters computer systems by hostname, department, or user ID with circuit breaker protection.
      *
-     * @param hostname Department to filter by
+     * @param hostname Hostname to filter by
      * @param department Department to filter by
-     * @param user User to filter by
+     * @param userId User ID to filter by
      * @param pageable Pagination parameters
      * @return Filtered page of computer systems
      */
@@ -144,9 +148,9 @@ public class ComputerSystemService {
     public Page<ComputerSystemDto> filterComputerSystems(
             String hostname,
             String department,
-            String user,
+            Long userId,
             Pageable pageable) {
-        return repository.findByFilters(hostname, department, user, pageable).map(this::mapToDto);
+        return repository.findByFilters(hostname, department, userId, pageable).map(mapper::toDto);
     }
 
     /**
@@ -156,10 +160,10 @@ public class ComputerSystemService {
     public Page<ComputerSystemDto> filterComputerSystemsFallback(
             String hostname,
             String department,
-            String user,
+            Long userId,
             Pageable pageable,
             CallNotPermittedException ex) {
-        logger.error("Database circuit breaker OPEN: Cannot filter computer systems - database unavailable");
+        log.error("Database circuit breaker OPEN: Cannot filter computer systems - database unavailable");
         // Return empty page indicating service unavailable
         return new PageImpl<>(Collections.emptyList(), pageable, 0);
     }
@@ -192,18 +196,14 @@ public class ComputerSystemService {
             throw new DuplicateResourceException("Computer system with IP address " + dto.getIpAddress() + " already exists");
         }
 
-        computerSystem.setHostname(dto.getHostname());
-        computerSystem.setManufacturer(dto.getManufacturer());
-        computerSystem.setModel(dto.getModel());
-        computerSystem.setUser(dto.getUser());
-        computerSystem.setDepartment(dto.getDepartment());
-        computerSystem.setMacAddress(dto.getMacAddress());
-        computerSystem.setIpAddress(dto.getIpAddress());
-        computerSystem.setNetworkName(dto.getNetworkName());
+        mapper.updateEntityFromDto(dto, computerSystem);
+        User assignedUser = userRepository.findById(dto.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User with id " + dto.getUserId() + NOT_FOUND));
+        computerSystem.setSystemUser(assignedUser);
 
         ComputerSystem updatedSystem = repository.save(computerSystem);
 
-        return mapToDto(updatedSystem);
+        return mapper.toDto(updatedSystem);
     }
 
     /**
@@ -211,7 +211,7 @@ public class ComputerSystemService {
      */
     public ComputerSystemDto updateComputerSystemFallback(Long id, ComputerSystemDto dto,
                                                          CallNotPermittedException ex) {
-        logger.error("Database circuit breaker OPEN: Cannot update computer system {} - database unavailable", id);
+        log.error("Database circuit breaker OPEN: Cannot update computer system {} - database unavailable", id);
         throw new RuntimeException("Database service temporarily unavailable. Please try again later.");
     }
 
@@ -235,7 +235,7 @@ public class ComputerSystemService {
      */
     public void deleteComputerSystemFallback(Long id,
                                             CallNotPermittedException ex) {
-        logger.error("Database circuit breaker OPEN: Cannot delete computer system {} - database unavailable", id);
+        log.error("Database circuit breaker OPEN: Cannot delete computer system {} - database unavailable", id);
         throw new RuntimeException("Database service temporarily unavailable. Please try again later.");
     }
 
@@ -252,7 +252,7 @@ public class ComputerSystemService {
         ComputerSystem computerSystem = repository.findByHostname(hostname)
                 .orElseThrow(() -> new ResourceNotFoundException("Computer system with hostname " + hostname + NOT_FOUND));
 
-        return mapToDto(computerSystem);
+        return mapper.toDto(computerSystem);
     }
 
     /**
@@ -260,41 +260,8 @@ public class ComputerSystemService {
      */
     public ComputerSystemDto getComputerSystemByHostnameFallback(String hostname,
                                                                 CallNotPermittedException ex) {
-        logger.error("Database circuit breaker OPEN: Cannot retrieve computer system {} - database unavailable", hostname);
+        log.error("Database circuit breaker OPEN: Cannot retrieve computer system {} - database unavailable", hostname);
         throw new RuntimeException("Database service temporarily unavailable. Please try again later.");
-    }
-
-    /**
-     * Maps ComputerSystem entity to DTO.
-     */
-    private ComputerSystemDto mapToDto(ComputerSystem entity) {
-        return ComputerSystemDto.builder()
-                .id(entity.getId())
-                .hostname(entity.getHostname())
-                .manufacturer(entity.getManufacturer())
-                .model(entity.getModel())
-                .user(entity.getUser())
-                .department(entity.getDepartment())
-                .macAddress(entity.getMacAddress())
-                .ipAddress(entity.getIpAddress())
-                .networkName(entity.getNetworkName())
-                .build();
-    }
-
-    /**
-     * Maps ComputerSystemDTO to entity.
-     */
-    private ComputerSystem mapToEntity(ComputerSystemDto dto) {
-        return ComputerSystem.builder()
-                .hostname(dto.getHostname())
-                .manufacturer(dto.getManufacturer())
-                .model(dto.getModel())
-                .user(dto.getUser())
-                .department(dto.getDepartment())
-                .macAddress(dto.getMacAddress())
-                .ipAddress(dto.getIpAddress())
-                .networkName(dto.getNetworkName())
-                .build();
     }
 }
 

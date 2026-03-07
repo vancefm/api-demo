@@ -1,6 +1,10 @@
 package com.demo.application.computersystem;
 
+import com.demo.application.security.auth.RoleRepository;
+import com.demo.application.user.UserRepository;
 import com.demo.domain.computersystem.ComputerSystem;
+import com.demo.domain.security.role.Role;
+import com.demo.domain.user.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,17 +20,36 @@ class ComputerSystemRepositoryIT {
     @Autowired
     private ComputerSystemRepository repository;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private RoleRepository roleRepository;
+
     private ComputerSystem testSystem;
+    private User testUser;
 
     @BeforeEach
     void setUp() {
+        Role role = roleRepository.save(Role.builder()
+            .name("MY_APP_USER")
+            .description("Test role")
+            .build());
+
+        testUser = userRepository.save(User.builder()
+            .username("admin")
+            .email("admin@example.com")
+            .department("IT")
+            .role(role)
+            .build());
+
         testSystem = ComputerSystem.builder()
             .hostname("TEST-SERVER")
             .ipAddress("192.168.1.100")
             .macAddress("00:1A:2B:3C:4D:5E")
             .manufacturer("Dell")
             .model("PowerEdge R750")
-            .systemUser("admin")
+            .systemUser(testUser)
             .department("IT")
             .networkName("VLAN-001")
             .build();
@@ -96,7 +119,7 @@ class ComputerSystemRepositoryIT {
             .macAddress("00:1A:2B:3C:4D:5F")
             .manufacturer("Dell")
             .model("PowerEdge R750")
-            .systemUser("admin")
+            .systemUser(testUser)
             .department("IT")
             .networkName("VLAN-001")
             .build();

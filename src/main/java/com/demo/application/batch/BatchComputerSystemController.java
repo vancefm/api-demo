@@ -14,8 +14,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -61,21 +61,16 @@ import java.util.stream.Collectors;
  * @see ComputerSystemService for transactional processing
  * @see GlobalExceptionHandler for error handling
  */
+@Slf4j
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/computer-systems/batch")
 @Tag(name = "Batch Operations", 
      description = "Bulk create, update, and delete operations with all-or-nothing guarantees")
 public class BatchComputerSystemController {
 
-    private static final Logger logger = LoggerFactory.getLogger(BatchComputerSystemController.class);
     private final ComputerSystemService computerSystemService;
     private final BatchProperties batchProperties;
-
-    public BatchComputerSystemController(ComputerSystemService computerSystemService,
-                                       BatchProperties batchProperties) {
-        this.computerSystemService = computerSystemService;
-        this.batchProperties = batchProperties;
-    }
 
     /**
      * Batch create multiple computer systems.
@@ -106,7 +101,7 @@ public class BatchComputerSystemController {
      *       "hostname": "SERVER-001",
      *       "manufacturer": "Dell",
      *       "model": "PowerEdge R750",
-     *       "user": "john.doe",
+     *       "userId": 1,
      *       "department": "IT",
      *       "macAddress": "00:1A:2B:3C:4D:5E",
      *       "ipAddress": "192.168.1.100",
@@ -116,7 +111,7 @@ public class BatchComputerSystemController {
      *       "hostname": "SERVER-002",
      *       "manufacturer": "Dell",
      *       "model": "PowerEdge R750",
-     *       "user": "jane.smith",
+     *       "userId": 2,
      *       "department": "IT",
      *       "macAddress": "00:1A:2B:3C:4D:5F",
      *       "ipAddress": "192.168.1.101",
@@ -172,7 +167,7 @@ public class BatchComputerSystemController {
             HttpServletRequest httpRequest) {
 
         int batchSize = request.getItems().size();
-        logger.info("Batch create started: {} items", batchSize);
+        log.info("Batch create started: {} items", batchSize);
 
         // Validate batch size against configured maximum
         ProblemDetail sizeError = validateBatchSize(batchSize, httpRequest.getRequestURI());
@@ -188,7 +183,7 @@ public class BatchComputerSystemController {
                     .map(computerSystemService::createComputerSystem)
                     .collect(Collectors.toList());
 
-            logger.info("Batch create completed successfully: {} items created", batchSize);
+            log.info("Batch create completed successfully: {} items created", batchSize);
 
             // Build success response
             BatchComputerSystemResponse response = BatchComputerSystemResponse.builder()
@@ -204,7 +199,7 @@ public class BatchComputerSystemController {
         } catch (Exception ex) {
             // Transaction automatically rolled back by Spring @Transactional
             // No items created if any failure during processing
-            logger.error("Batch create failed - transaction rolled back, {} items NOT created", batchSize, ex);
+            log.error("Batch create failed - transaction rolled back, {} items NOT created", batchSize, ex);
             throw ex;
         }
     }
@@ -262,7 +257,7 @@ public class BatchComputerSystemController {
             HttpServletRequest httpRequest) {
 
         int batchSize = request.getItems().size();
-        logger.info("Batch update started: {} items", batchSize);
+        log.info("Batch update started: {} items", batchSize);
 
         // Validate batch size against configured maximum
         ProblemDetail sizeError = validateBatchSize(batchSize, httpRequest.getRequestURI());
@@ -278,7 +273,7 @@ public class BatchComputerSystemController {
                     .map(item -> computerSystemService.updateComputerSystem(item.getId(), item))
                     .collect(Collectors.toList());
 
-            logger.info("Batch update completed successfully: {} items updated", batchSize);
+            log.info("Batch update completed successfully: {} items updated", batchSize);
 
             // Build success response
             BatchComputerSystemResponse response = BatchComputerSystemResponse.builder()
@@ -294,7 +289,7 @@ public class BatchComputerSystemController {
         } catch (Exception ex) {
             // Transaction automatically rolled back by Spring @Transactional
             // No items updated if any failure during processing
-            logger.error("Batch update failed - transaction rolled back, {} items NOT updated", batchSize, ex);
+            log.error("Batch update failed - transaction rolled back, {} items NOT updated", batchSize, ex);
             throw ex;
         }
     }
@@ -352,7 +347,7 @@ public class BatchComputerSystemController {
             HttpServletRequest httpRequest) {
 
         int batchSize = request.getItems().size();
-        logger.info("Batch delete started: {} items", batchSize);
+        log.info("Batch delete started: {} items", batchSize);
 
         // Validate batch size against configured maximum
         ProblemDetail sizeError = validateBatchSize(batchSize, httpRequest.getRequestURI());
@@ -370,26 +365,26 @@ public class BatchComputerSystemController {
             // TWO-PHASE APPROACH:
             // Phase 1: Verify all items exist BEFORE deleting any
             // This prevents "deleted 3 of 5" scenario
-            logger.debug("Verifying {} items exist before deletion", ids.size());
+            log.debug("Verifying {} items exist before deletion", ids.size());
             for (Long id : ids) {
                 // Throws ResourceNotFoundException if not found
                 computerSystemService.getComputerSystemById(id);
             }
 
-            logger.debug("All {} items verified - proceeding with deletion", ids.size());
+            log.debug("All {} items verified - proceeding with deletion", ids.size());
 
             // Phase 2: Delete all in transaction
             // If any delete fails, transaction rolls back and no items are deleted
             ids.forEach(computerSystemService::deleteComputerSystem);
 
-            logger.info("Batch delete completed successfully: {} items deleted", ids.size());
+            log.info("Batch delete completed successfully: {} items deleted", ids.size());
 
             return ResponseEntity.noContent().build();
 
         } catch (Exception ex) {
             // Transaction automatically rolled back by Spring @Transactional
             // No items deleted if any verification or deletion fails
-            logger.error("Batch delete failed - transaction rolled back, {} items NOT deleted", batchSize, ex);
+            log.error("Batch delete failed - transaction rolled back, {} items NOT deleted", batchSize, ex);
             throw ex;
         }
     }
@@ -412,7 +407,7 @@ public class BatchComputerSystemController {
                     batchProperties.getMaxItems()
             );
             
-            logger.warn("Batch size validation failed: {}", message);
+            log.warn("Batch size validation failed: {}", message);
             
             ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
             problem.setTitle("Batch Size Exceeds Maximum");
