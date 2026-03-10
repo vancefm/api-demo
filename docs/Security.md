@@ -23,16 +23,29 @@ This document summarizes the authentication and authorization design for the API
 ## Roles and JWT claims
 - When a user authenticates via `/api/v1/auth/login`, the issued JWT will include a `roles` claim: an array of role names assigned to the user (e.g., `["MY_APP_SUPERADMIN"]`).
 - The integrated gateway and downstream services may use the `roles` claim to perform authorization checks. Roles are derived from the `User`'s `role.name` in the database, from Active Directory group mappings, or from embedded LDAP group mappings.
-- Active Directory uses `sAMAccountName` for login. Group memberships are mapped directly to roles, and when no groups are returned the user receives the `MY_APP_USER` role.
+- Active Directory uses `sAMAccountName` for login. Group memberships are mapped to roles via the `security.active-directory.role-to-ad-groups` configuration (role → list of AD group CNs). When no groups match, the user receives the `MY_APP_USER` role.
 
 ## Embedded LDAP (Test / Local Development)
 - An embedded UnboundID LDAP server is available for testing and local development. It is configured as a **test-scoped** dependency (`com.unboundid:unboundid-ldapsdk`).
 - The embedded server is started via `EmbeddedLdapTestConfig` (`@TestConfiguration`) and seeded from `src/test/resources/test-ldap-users.ldif`.
 - Base DN: `dc=demo,dc=com`. Users reside under `ou=people`, groups under `ou=groups`.
-- LDAP group → application role mapping:
+- Embedded LDAP group → application role mapping (set in `EmbeddedLdapTestConfig` for tests):
   - `GroupA-Users` → `ROLE_MY_APP_USER`
   - `GroupB-Admins` → `ROLE_MY_APP_ADMIN`
   - `GroupC-SuperAdmins` → `ROLE_MY_APP_SUPERADMIN`
+- For production Active Directory, the same mapping is driven by the `security.active-directory.role-to-ad-groups` YAML config key (role → list of AD group CNs). Example:
+  ```yaml
+  security:
+    active-directory:
+      role-to-ad-groups:
+        MY_APP_USER:
+          - GroupA-Users
+        MY_APP_ADMIN:
+          - GroupB-Admins
+          - GroupB-Helpdesk
+        MY_APP_SUPERADMIN:
+          - GroupC-SuperAdmins
+  ```
 - Seeded test users:
   - `user1` / `password1` — member of `GroupA-Users`
   - `user2` / `password2` — member of `GroupA-Users`
@@ -69,5 +82,6 @@ This document summarizes the authentication and authorization design for the API
 ## Deployment Notes
 - Ensure `security.jwt.private-key` value is provided at deploy time via keystore or secret manager.
 - Configure Active Directory connection details via environment variables: `AD_URL`, `AD_DOMAIN`, `AD_ROOT_DN`, `AD_USER_SEARCH_FILTER`, `AD_GROUP_SEARCH_BASE`, `AD_GROUP_SEARCH_FILTER`, `AD_MANAGER_DN`, `AD_MANAGER_PASSWORD`.
+- Configure the AD role mapping via `security.active-directory.role-to-ad-groups` in `application.yml` (role → list of AD group CNs). No default mappings are hard-coded; configure this property for your environment.
 - Enable gateway features by setting `app.gateway.enabled=true` (default in this project).
 - The embedded LDAP server is **test-scoped only** and not available in production builds. Tests that import `EmbeddedLdapTestConfig` will start the server automatically; no external LDAP infrastructure is required for running the test suite.

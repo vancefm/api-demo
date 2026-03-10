@@ -276,6 +276,16 @@ security:
     # Optional bind account for group lookups
     manager-dn: ${AD_MANAGER_DN:}
     manager-password: ${AD_MANAGER_PASSWORD:}
+    # Mapping from application role to list of AD group CNs.
+    # Each role key may omit the ROLE_ prefix; it is added automatically.
+    role-to-ad-groups:
+      MY_APP_USER:
+        - GroupA-Users
+      MY_APP_ADMIN:
+        - GroupB-Admins
+        - GroupB-Helpdesk
+      MY_APP_SUPERADMIN:
+        - GroupC-SuperAdmins
 
   # JWT / JWKS settings
   jwt:

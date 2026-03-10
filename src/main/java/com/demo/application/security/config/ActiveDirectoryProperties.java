@@ -3,6 +3,7 @@ package com.demo.application.security.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @ConfigurationProperties(prefix = "security.active-directory")
@@ -54,33 +55,29 @@ public class ActiveDirectoryProperties {
     private String managerPassword = "";
 
     /**
-     * Mapping from AD group common names (CNs) to application role names.
-     * Keys are the raw CN values of the AD groups (case-insensitive matching is applied
-     * at runtime). Values are the Spring Security role names, with or without the
-     * {@code ROLE_} prefix – the prefix is added automatically when absent.
-     *
-     * <p><strong>Note:</strong> The default values below are illustrative examples
-     * based on the demo LDIF structure. Replace them with your actual AD group CNs
-     * before deploying to a real Active Directory environment.</p>
+     * Mapping from application role to a list of AD group common names (CNs).
+     * Keys are application role names (with or without the {@code ROLE_} prefix –
+     * the prefix is added automatically when absent). Values are lists of raw CN
+     * values of AD groups; matching is case-insensitive at runtime.
      *
      * <p>Example {@code application.yml} snippet:</p>
      * <pre>
      * security:
      *   active-directory:
-     *     group-role-mapping:
-     *       My-AD-Group-Users: MY_APP_USER
-     *       My-AD-Group-Admins: MY_APP_ADMIN
-     *       My-AD-Group-SuperAdmins: MY_APP_SUPERADMIN
+     *     role-to-ad-groups:
+     *       MY_APP_USER:
+     *         - GroupA-Users
+     *       MY_APP_ADMIN:
+     *         - GroupB-Admins
+     *         - GroupB-Helpdesk
+     *       MY_APP_SUPERADMIN:
+     *         - GroupC-SuperAdmins
      * </pre>
      *
      * <p>When an authenticated user belongs to none of the mapped groups,
      * the fallback role {@code ROLE_MY_APP_USER} is assigned.</p>
      */
-    private Map<String, String> groupRoleMapping = new LinkedHashMap<>(Map.of(
-            "GroupA-Users", "ROLE_MY_APP_USER",
-            "GroupB-Admins", "ROLE_MY_APP_ADMIN",
-            "GroupC-SuperAdmins", "ROLE_MY_APP_SUPERADMIN"
-    ));
+    private Map<String, List<String>> roleToAdGroups = new LinkedHashMap<>();
 
     public boolean isEnabled() {
         return enabled;
@@ -154,11 +151,11 @@ public class ActiveDirectoryProperties {
         this.managerPassword = managerPassword;
     }
 
-    public Map<String, String> getGroupRoleMapping() {
-        return groupRoleMapping;
+    public Map<String, List<String>> getRoleToAdGroups() {
+        return roleToAdGroups;
     }
 
-    public void setGroupRoleMapping(Map<String, String> groupRoleMapping) {
-        this.groupRoleMapping = groupRoleMapping;
+    public void setRoleToAdGroups(Map<String, List<String>> roleToAdGroups) {
+        this.roleToAdGroups = roleToAdGroups;
     }
 }

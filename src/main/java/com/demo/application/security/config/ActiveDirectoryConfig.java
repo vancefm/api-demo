@@ -24,6 +24,8 @@ import java.util.Set;
 @EnableConfigurationProperties(ActiveDirectoryProperties.class)
 @ConditionalOnProperty(prefix = "security.active-directory", name = "enabled", havingValue = "true", matchIfMissing = false)
 public class ActiveDirectoryConfig {
+    private static final String ROLE_PREFIX = "ROLE_";
+
     private final ActiveDirectoryProperties properties;
 
     public ActiveDirectoryConfig(ActiveDirectoryProperties properties) {
@@ -73,12 +75,12 @@ public class ActiveDirectoryConfig {
      * <p>Authority resolution order:</p>
      * <ol>
      *   <li>AD groups are loaded by the {@link DefaultLdapAuthoritiesPopulator}.</li>
-     *   <li>Each group CN is matched (case-insensitively) against
-     *       {@link ActiveDirectoryProperties#getGroupRoleMapping()}.</li>
-     *   <li>Matched groups are converted to the configured application role, ensuring
-     *       the {@code ROLE_} prefix is present.</li>
-     *   <li>When no groups match, the fallback role {@code ROLE_MY_APP_USER} is assigned
-     *       so that every AD-authenticated user can at least access basic endpoints.</li>
+     *   <li>Each group CN is matched (case-insensitively) against the configured
+     *       {@link ActiveDirectoryProperties#getRoleToAdGroups()} mapping (inverted at
+     *       startup into a groupCN → role lookup).</li>
+     *   <li>Matched groups are converted to application roles, ensuring the {@code ROLE_}
+     *       prefix is present.</li>
+     *   <li>When no groups match, the fallback role {@code ROLE_MY_APP_USER} is assigned.</li>
      * </ol>
      */
     @Bean
@@ -94,33 +96,42 @@ public class ActiveDirectoryConfig {
         provider.setSearchFilter(properties.getUserSearchFilter());
         // Map AD groups into Spring Security authorities.
         provider.setAuthoritiesPopulator(populator);
-        // Pre-compute the normalised group-CN → application-role lookup once at
-        // startup. The DefaultLdapAuthoritiesPopulator uppercases group CNs and
-        // prefixes them with "ROLE_", so we normalise the configured keys the same
-        // way and ensure every role value carries the "ROLE_" prefix.
+
+        // Invert roleToAdGroups (role -> [groupCN, ...]) into a normalised
+        // groupCN (uppercase) -> ROLE_... lookup built once at startup.
         Map<String, String> normalizedGroupRoleMapping = new HashMap<>();
-        for (Map.Entry<String, String> entry : properties.getGroupRoleMapping().entrySet()) {
-            String normalizedKey = entry.getKey().toUpperCase();
-            String roleValue = entry.getValue();
-            if (!roleValue.startsWith("ROLE_")) {
-                roleValue = "ROLE_" + roleValue;
+        if (properties.getRoleToAdGroups() != null) {
+            for (Map.Entry<String, List<String>> entry : properties.getRoleToAdGroups().entrySet()) {
+                String roleValue = entry.getKey();
+                if (!roleValue.startsWith(ROLE_PREFIX)) {
+                    roleValue = ROLE_PREFIX + roleValue;
+                }
+                List<String> groups = entry.getValue();
+                if (groups == null) {
+                    continue;
+                }
+                for (String groupCn : groups) {
+                    if (!StringUtils.hasText(groupCn)) {
+                        continue;
+                    }
+                    normalizedGroupRoleMapping.put(groupCn.toUpperCase(), roleValue);
+                }
             }
-            normalizedGroupRoleMapping.put(normalizedKey, roleValue);
         }
         final Map<String, String> groupRoleMapping = Collections.unmodifiableMap(normalizedGroupRoleMapping);
 
         provider.setAuthoritiesMapper(authorities -> {
             if (authorities == null || authorities.isEmpty()) {
                 // AD-authenticated users with no groups receive the fallback role.
-                return List.of(new SimpleGrantedAuthority("ROLE_MY_APP_USER"));
+                return List.of(new SimpleGrantedAuthority(ROLE_PREFIX + "MY_APP_USER"));
             }
 
             Set<GrantedAuthority> mapped = new HashSet<>();
             for (GrantedAuthority authority : authorities) {
                 String name = authority.getAuthority().toUpperCase();
                 // Strip ROLE_ prefix added by the authorities populator before lookup.
-                if (name.startsWith("ROLE_")) {
-                    name = name.substring(5);
+                if (name.startsWith(ROLE_PREFIX)) {
+                    name = name.substring(ROLE_PREFIX.length());
                 }
                 String mappedRole = groupRoleMapping.get(name);
                 if (mappedRole != null) {
@@ -130,7 +141,7 @@ public class ActiveDirectoryConfig {
 
             if (mapped.isEmpty()) {
                 // AD user authenticated but no recognised groups – assign fallback role.
-                mapped.add(new SimpleGrantedAuthority("ROLE_MY_APP_USER"));
+                mapped.add(new SimpleGrantedAuthority(ROLE_PREFIX + "MY_APP_USER"));
             }
             return new ArrayList<>(mapped);
         });
