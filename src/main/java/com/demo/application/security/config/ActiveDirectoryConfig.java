@@ -74,7 +74,7 @@ public class ActiveDirectoryConfig {
      * <ol>
      *   <li>AD groups are loaded by the {@link DefaultLdapAuthoritiesPopulator}.</li>
      *   <li>Each group CN is matched (case-insensitively) against
-     *       {@link ActiveDirectoryProperties#getGroupRoleMapping()}.</li>
+     *       {@link ActiveDirectoryProperties#getRoleToAdGroups()} (inverted at startup).</li>
      *   <li>Matched groups are converted to the configured application role, ensuring
      *       the {@code ROLE_} prefix is present.</li>
      *   <li>When no groups match, the fallback role {@code ROLE_MY_APP_USER} is assigned
@@ -95,17 +95,28 @@ public class ActiveDirectoryConfig {
         // Map AD groups into Spring Security authorities.
         provider.setAuthoritiesPopulator(populator);
         // Pre-compute the normalised group-CN → application-role lookup once at
-        // startup. The DefaultLdapAuthoritiesPopulator uppercases group CNs and
-        // prefixes them with "ROLE_", so we normalise the configured keys the same
-        // way and ensure every role value carries the "ROLE_" prefix.
+        // startup by inverting the role-to-ad-groups mapping.  The
+        // DefaultLdapAuthoritiesPopulator uppercases group CNs and prefixes them
+        // with "ROLE_", so we normalise the configured keys the same way and
+        // ensure every role value carries the "ROLE_" prefix.
         Map<String, String> normalizedGroupRoleMapping = new HashMap<>();
-        for (Map.Entry<String, String> entry : properties.getGroupRoleMapping().entrySet()) {
-            String normalizedKey = entry.getKey().toUpperCase();
-            String roleValue = entry.getValue();
-            if (!roleValue.startsWith("ROLE_")) {
-                roleValue = "ROLE_" + roleValue;
+        if (properties.getRoleToAdGroups() != null) {
+            for (Map.Entry<String, List<String>> entry : properties.getRoleToAdGroups().entrySet()) {
+                String roleValue = entry.getKey();
+                if (!roleValue.startsWith("ROLE_")) {
+                    roleValue = "ROLE_" + roleValue;
+                }
+                List<String> groups = entry.getValue();
+                if (groups == null) {
+                    continue;
+                }
+                for (String groupCn : groups) {
+                    if (!StringUtils.hasText(groupCn)) {
+                        continue;
+                    }
+                    normalizedGroupRoleMapping.put(groupCn.toUpperCase(), roleValue);
+                }
             }
-            normalizedGroupRoleMapping.put(normalizedKey, roleValue);
         }
         final Map<String, String> groupRoleMapping = Collections.unmodifiableMap(normalizedGroupRoleMapping);
 
