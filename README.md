@@ -1686,7 +1686,26 @@ The RBAC system provides three layers of security:
 2. **Object-Level Authorization**: Control which resources users can access
 3. **Field-Level Authorization**: Control which fields users can read and write
 
-Active Directory authentication uses `sAMAccountName` for login. AD group memberships map directly to roles, and users with no group membership receive the `USER` role.
+Active Directory authentication uses `sAMAccountName` for login. AD group memberships are mapped to roles via the YAML configuration – nothing is hard-coded in Java.
+
+#### Role Mapping Configuration
+
+AD roles are configured under `security.active-directory.role-to-ad-groups`. Each role key maps to a list of one or more AD group CNs. Any group in the list grants that role.
+
+```yaml
+security:
+  active-directory:
+    role-to-ad-groups:
+      MY_APP_USER:
+        - GroupA-Users
+      MY_APP_ADMIN:
+        - GroupB-Admins
+        - GroupB-Helpdesk
+      MY_APP_SUPERADMIN:
+        - GroupC-SuperAdmins
+```
+
+> **Fallback**: Users who authenticate successfully but belong to none of the mapped AD groups are automatically granted the `ROLE_MY_APP_USER` role.
 
 For testing and local development, an **embedded LDAP server** (UnboundID) provides authentication without requiring external infrastructure. LDAP groups are mapped to application roles:
 
