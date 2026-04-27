@@ -24,6 +24,8 @@ import java.util.Set;
 @EnableConfigurationProperties(ActiveDirectoryProperties.class)
 @ConditionalOnProperty(prefix = "security.active-directory", name = "enabled", havingValue = "true", matchIfMissing = false)
 public class ActiveDirectoryConfig {
+    private static final String ROLE_PREFIX = "ROLE_";
+
     private final ActiveDirectoryProperties properties;
 
     public ActiveDirectoryConfig(ActiveDirectoryProperties properties) {
@@ -103,8 +105,8 @@ public class ActiveDirectoryConfig {
         if (properties.getRoleToAdGroups() != null) {
             for (Map.Entry<String, List<String>> entry : properties.getRoleToAdGroups().entrySet()) {
                 String roleValue = entry.getKey();
-                if (!roleValue.startsWith("ROLE_")) {
-                    roleValue = "ROLE_" + roleValue;
+                if (!roleValue.startsWith(ROLE_PREFIX)) {
+                    roleValue = ROLE_PREFIX + roleValue;
                 }
                 List<String> groups = entry.getValue();
                 if (groups == null) {
@@ -123,15 +125,15 @@ public class ActiveDirectoryConfig {
         provider.setAuthoritiesMapper(authorities -> {
             if (authorities == null || authorities.isEmpty()) {
                 // AD-authenticated users with no groups receive the fallback role.
-                return List.of(new SimpleGrantedAuthority("ROLE_MY_APP_USER"));
+                return List.of(new SimpleGrantedAuthority(ROLE_PREFIX + "MY_APP_USER"));
             }
 
             Set<GrantedAuthority> mapped = new HashSet<>();
             for (GrantedAuthority authority : authorities) {
                 String name = authority.getAuthority().toUpperCase();
                 // Strip ROLE_ prefix added by the authorities populator before lookup.
-                if (name.startsWith("ROLE_")) {
-                    name = name.substring(5);
+                if (name.startsWith(ROLE_PREFIX)) {
+                    name = name.substring(ROLE_PREFIX.length());
                 }
                 String mappedRole = groupRoleMapping.get(name);
                 if (mappedRole != null) {
@@ -141,7 +143,7 @@ public class ActiveDirectoryConfig {
 
             if (mapped.isEmpty()) {
                 // AD user authenticated but no recognised groups – assign fallback role.
-                mapped.add(new SimpleGrantedAuthority("ROLE_MY_APP_USER"));
+                mapped.add(new SimpleGrantedAuthority(ROLE_PREFIX + "MY_APP_USER"));
             }
             return new ArrayList<>(mapped);
         });
