@@ -55,10 +55,13 @@ public class ActiveDirectoryProperties {
     private String managerPassword = "";
 
     /**
-     * Mapping from application role to a list of AD group common names (CNs).
-     * Keys are application role names (with or without the {@code ROLE_} prefix –
-     * the prefix is added automatically when absent). Values are lists of raw CN
-     * values of AD groups; matching is case-insensitive at runtime.
+     * Mapping from application role names to lists of AD group common names (CNs).
+     * Keys are application role names, with or without the {@code ROLE_} prefix –
+     * the prefix is added automatically when absent. Values are lists of raw CN values
+     * of AD groups; case-insensitive matching is applied at runtime.
+     *
+     * <p>Each role can be granted by one or more AD groups. This mapping is purely
+     * configuration-driven – nothing is hard-coded in Java.</p>
      *
      * <p>Example {@code application.yml} snippet:</p>
      * <pre>

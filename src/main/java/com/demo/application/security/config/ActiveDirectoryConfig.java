@@ -75,12 +75,12 @@ public class ActiveDirectoryConfig {
      * <p>Authority resolution order:</p>
      * <ol>
      *   <li>AD groups are loaded by the {@link DefaultLdapAuthoritiesPopulator}.</li>
-     *   <li>Each group CN is matched (case-insensitively) against the configured
-     *       {@link ActiveDirectoryProperties#getRoleToAdGroups()} mapping (inverted at
-     *       startup into a groupCN → role lookup).</li>
-     *   <li>Matched groups are converted to application roles, ensuring the {@code ROLE_}
-     *       prefix is present.</li>
-     *   <li>When no groups match, the fallback role {@code ROLE_MY_APP_USER} is assigned.</li>
+     *   <li>Each group CN is matched (case-insensitively) against
+     *       {@link ActiveDirectoryProperties#getRoleToAdGroups()} (inverted at startup).</li>
+     *   <li>Matched groups are converted to the configured application role, ensuring
+     *       the {@code ROLE_} prefix is present.</li>
+     *   <li>When no groups match, the fallback role {@code ROLE_MY_APP_USER} is assigned
+     *       so that every AD-authenticated user can at least access basic endpoints.</li>
      * </ol>
      */
     @Bean
@@ -96,9 +96,11 @@ public class ActiveDirectoryConfig {
         provider.setSearchFilter(properties.getUserSearchFilter());
         // Map AD groups into Spring Security authorities.
         provider.setAuthoritiesPopulator(populator);
-
-        // Invert roleToAdGroups (role -> [groupCN, ...]) into a normalised
-        // groupCN (uppercase) -> ROLE_... lookup built once at startup.
+        // Pre-compute the normalised group-CN → application-role lookup once at
+        // startup by inverting the role-to-ad-groups mapping.  The
+        // DefaultLdapAuthoritiesPopulator uppercases group CNs and prefixes them
+        // with "ROLE_", so we normalise the configured keys the same way and
+        // ensure every role value carries the "ROLE_" prefix.
         Map<String, String> normalizedGroupRoleMapping = new HashMap<>();
         if (properties.getRoleToAdGroups() != null) {
             for (Map.Entry<String, List<String>> entry : properties.getRoleToAdGroups().entrySet()) {

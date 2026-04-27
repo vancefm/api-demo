@@ -20,7 +20,7 @@ buildNumber.properties
 *.swo
 *~
 .DS_Store
-
+.claude
 # Build
 *.class
 *.jar
