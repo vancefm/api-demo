@@ -104,8 +104,7 @@ public class EmbeddedLdapTestConfig {
             LdapAuthenticationProvider ldapAuthenticationProvider,
             PasswordEncoder passwordEncoder,
             DbUserDetailsService dbUserDetailsService) {
-        DaoAuthenticationProvider daoProvider = new DaoAuthenticationProvider();
-        daoProvider.setUserDetailsService(dbUserDetailsService);
+        DaoAuthenticationProvider daoProvider = new DaoAuthenticationProvider(dbUserDetailsService);
         daoProvider.setPasswordEncoder(passwordEncoder);
         return new ProviderManager(ldapAuthenticationProvider, daoProvider);
     }

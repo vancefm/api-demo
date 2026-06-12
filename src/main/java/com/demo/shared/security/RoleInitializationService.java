@@ -6,7 +6,7 @@ import com.demo.application.security.auth.RolePermissionRepository;
 import com.demo.application.security.auth.RoleRepository;
 import com.demo.domain.security.permission.Permission;
 import com.demo.domain.security.rolepermission.RolePermission;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
