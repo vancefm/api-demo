@@ -5,7 +5,7 @@ This document summarizes the authentication and authorization design for the API
 ## Overview
 - Authentication: Remote Active Directory for corporate users; MariaDB-backed internal admin accounts (BCrypt-hashed passwords) as a fallback; embedded LDAP (UnboundID) for local development and testing.
 - Tokens: JWTs signed with an RSA-4096 private key (RS512). The public key is exposed via JWKS at `/.well-known/jwks.json` for verification.
-- Gateway: Integrated Spring Cloud Gateway (same artifact) centralizes rate-limiting (per-instance), circuit breakers (Resilience4j), and response compression.
+- Cross-cutting concerns: Rate-limiting (Resilience4j, applied via the application-level `GlobalRateLimitInterceptor`), circuit breakers (Resilience4j), and response compression (embedded servlet container). The previously-bundled reactive Spring Cloud Gateway was removed during the Spring Boot 4 upgrade — it configured no routes and was disabled in tests.
 - Persistent API tokens and session store: Stored in MariaDB using `api_tokens` and `sessions` tables.
 
 ## Key handling
@@ -17,12 +17,12 @@ This document summarizes the authentication and authorization design for the API
 - Key requirements: RSA-4096 minimum for signing.
 
 ## JWKS endpoint
-- The application exposes public keys at `/.well-known/jwks.json` so the gateway and other services can fetch verification keys.
+- The application exposes public keys at `/.well-known/jwks.json` so downstream services and API clients can fetch verification keys.
 - JWKS contains public key material only (no private key exposure).
 
 ## Roles and JWT claims
 - When a user authenticates via `/api/v1/auth/login`, the issued JWT will include a `roles` claim: an array of role names assigned to the user (e.g., `["MY_APP_SUPERADMIN"]`).
-- The integrated gateway and downstream services may use the `roles` claim to perform authorization checks. Roles are derived from the `User`'s `role.name` in the database, from Active Directory group mappings, or from embedded LDAP group mappings.
+- Downstream services may use the `roles` claim to perform authorization checks. Roles are derived from the `User`'s `role.name` in the database, from Active Directory group mappings, or from embedded LDAP group mappings.
 - Active Directory uses `sAMAccountName` for login. Group memberships are mapped to roles via the `security.active-directory.role-to-ad-groups` configuration (role → list of AD group CNs). When no groups match, the user receives the `MY_APP_USER` role.
 
 ## Embedded LDAP (Test / Local Development)
@@ -76,12 +76,13 @@ This document summarizes the authentication and authorization design for the API
 - Session records are stored in `sessions` if DB-backed session store is enabled.
 
 ## Rate limiting
-- The integrated gateway uses per-instance rate limiting by default (no Redis). This is simple and fast, but not globally consistent across replicas.
+- The application-level `GlobalRateLimitInterceptor` (Resilience4j) applies per-instance rate limiting (no Redis). This is simple and fast, but not globally consistent across replicas.
+- The interceptor is registered only when `app.gateway.enabled=false` (see `WebConfig`); with the default `true` the interceptor is inactive. Set `app.gateway.enabled=false` to enforce app-level rate limiting now that the gateway has been removed.
 - For distributed global limits, consider adding a shared datastore or dedicated rate-limiter service in the future.
 
 ## Deployment Notes
 - Ensure `security.jwt.private-key` value is provided at deploy time via keystore or secret manager.
 - Configure Active Directory connection details via environment variables: `AD_URL`, `AD_DOMAIN`, `AD_ROOT_DN`, `AD_USER_SEARCH_FILTER`, `AD_GROUP_SEARCH_BASE`, `AD_GROUP_SEARCH_FILTER`, `AD_MANAGER_DN`, `AD_MANAGER_PASSWORD`.
 - Configure the AD role mapping via `security.active-directory.role-to-ad-groups` in `application.yml` (role → list of AD group CNs). No default mappings are hard-coded; configure this property for your environment.
-- Enable gateway features by setting `app.gateway.enabled=true` (default in this project).
+- The `app.gateway.enabled` flag (default `true`) is a legacy toggle from the removed gateway: while `true` the app-level `GlobalRateLimitInterceptor` stays inactive. Set it to `false` to enable application-enforced rate limiting.
 - The embedded LDAP server is **test-scoped only** and not available in production builds. Tests that import `EmbeddedLdapTestConfig` will start the server automatically; no external LDAP infrastructure is required for running the test suite.
