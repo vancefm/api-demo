@@ -181,15 +181,17 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
 
 ## Technologies Used
 
-- **Spring Boot 3.5.8**: Latest stable LTS framework
-- **Java 21**: Latest LTS programming language
+- **Spring Boot 4.1.0**: Latest stable framework
+- **Spring Framework 7**: Core framework (Jakarta EE 11 baseline)
+- **Java 25**: Latest LTS programming language
 - **Spring Data JPA**: ORM and repository pattern
-- **Hibernate**: JPA implementation
+- **Hibernate ORM 7**: JPA implementation
 - **H2 Database**: In-memory relational database
-- **SpringDoc OpenAPI 2.3.0**: Swagger/OpenAPI documentation
+- **Jackson 3** (`tools.jackson`): JSON serialization (the Spring Boot 4 default)
+- **SpringDoc OpenAPI 3.0.3**: Swagger/OpenAPI documentation
 - **Lombok**: Reduce boilerplate code
 - **JUnit 5**: Testing framework
-- **Mockito 5.11.0**: Mocking framework with Java 21+ support
+- **Mockito 5.23.0**: Mocking framework with JDK 25 support
 - **Maven 3.9.11**: Build tool and dependency management
 
 ## Architecture & Design
@@ -223,7 +225,7 @@ The API returns structured error responses following **RFC 9457** (Problem Detai
 
 **RFC 9457 Benefits:**
 - **Standardized Format**: Interoperable across all clients and tools
-- **Spring Native**: Uses `ProblemDetail` built into Spring Framework 6.2+
+- **Spring Native**: Uses `ProblemDetail` built into Spring Framework 6.2+ (Spring Framework 7 here)
 - **Extensible**: Add custom properties for domain-specific error information
 - **Semantic**: Standard field names (`title`, `detail`, `status`, `instance`) recognized by API clients
 
@@ -261,8 +263,8 @@ When validation fails, the `detail` field includes item-level error information:
 ## Getting Started
 
 ### Prerequisites
-- Java 21 or higher (LTS version)
-- Maven 3.8.0 or higher
+- Java 25 or higher (LTS version)
+- Maven 3.9.0 or higher
 
 ### Build
 ```bash
@@ -1523,7 +1525,15 @@ spec:
 
 ---
 
-## Recent Updates (November 2025)
+## Recent Updates (June 2026)
+
+### Spring Boot 4.1 / JDK 25 Upgrade
+- **Upgraded to Spring Boot 4.1.0** (Spring Framework 7, Spring Security 7.1, Hibernate ORM 7) and **JDK 25**; the compiler now targets Java 25.
+- **Jackson 3 is the new default**: migrated `ObjectMapper`/`TypeReference` usage from `com.fasterxml.jackson.*` to `tools.jackson.*`.
+- **Test slices are now per-technology modules** in Boot 4 and are no longer pulled in by `spring-boot-starter-test`; added `spring-boot-webmvc-test` (`@WebMvcTest`), `spring-boot-data-jpa-test` (`@DataJpaTest`), and `spring-boot-security-test` (the MockMvc ↔ `@WithMockUser` integration).
+- **Removed the unused reactive `spring-cloud-starter-gateway` dependency**: no routes were configured, it was disabled/excluded in tests, and it pulled the whole Spring Cloud release train into the build for no functional benefit. Rate limiting and circuit breaking remain provided by Resilience4j.
+- Dependency bumps: SpringDoc OpenAPI `3.0.3`, Resilience4j `2.4.0` (`resilience4j-spring-boot4`), nimbus-jose-jwt `10.9` (aligned with Spring Security 7.1).
+- `DaoAuthenticationProvider` now uses constructor injection (the no-arg constructor + `setUserDetailsService` were removed in Spring Security 7).
 
 ### RFC 9457 ProblemDetail Migration
 - **Migrated from custom `ErrorResponse` to Spring's `ProblemDetail`** (RFC 9457 standard)
@@ -1531,7 +1541,7 @@ spec:
 - All error responses now follow RFC 9457 specification with fields: `type`, `title`, `status`, `detail`, `instance`, `timestamp`
 - Benefits:
   - Interoperable with standard API clients and tools
-  - Built into Spring Framework 6.2+ (no custom code needed)
+  - Built into Spring Framework 6.2+ / 7 (no custom code needed)
   - Extensible with custom properties for domain-specific errors
   - Standards-based approach (recognized by Postman, REST clients, etc.)
 - Updated `GlobalExceptionHandler` to return `ProblemDetail` responses

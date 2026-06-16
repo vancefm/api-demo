@@ -82,8 +82,7 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationManager authenticationManager(PasswordEncoder passwordEncoder) {
-        DaoAuthenticationProvider daoProvider = new DaoAuthenticationProvider();
-        daoProvider.setUserDetailsService(dbUserDetailsService);
+        DaoAuthenticationProvider daoProvider = new DaoAuthenticationProvider(dbUserDetailsService);
         daoProvider.setPasswordEncoder(passwordEncoder);
 
         // Provider order: Active Directory first (when enabled), then DB/DAO fallback.
