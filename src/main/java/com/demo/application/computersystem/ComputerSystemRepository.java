@@ -1,17 +1,15 @@
 package com.demo.application.computersystem;
 
 import com.demo.domain.computersystem.ComputerSystem;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
 @Repository
-public interface ComputerSystemRepository extends JpaRepository<ComputerSystem, Long> {
+public interface ComputerSystemRepository
+        extends JpaRepository<ComputerSystem, Long>, JpaSpecificationExecutor<ComputerSystem> {
 
     Optional<ComputerSystem> findByHostname(String hostname);
 
@@ -19,18 +17,7 @@ public interface ComputerSystemRepository extends JpaRepository<ComputerSystem, 
 
     Optional<ComputerSystem> findByIpAddress(String ipAddress);
 
-    @Query("SELECT cs FROM ComputerSystem cs WHERE " +
-           "(:hostname IS NULL OR cs.hostname LIKE %:hostname%) AND " +
-           "(:department IS NULL OR cs.department = :department) AND " +
-           "(:userId IS NULL OR cs.systemUser.id = :userId)")
-    Page<ComputerSystem> findByFilters(
-            @Param("hostname") String hostname,
-            @Param("department") String department,
-            @Param("userId") Long userId,
-            Pageable pageable
-    );
-
-    // In future methods be conscious potential of n+1 problem when using JPA
-    // and fetching related entities. A work around for this would be to use
-    // fetch joins or entity graphs.
+    // Filtering + authorization scoping are expressed as JPA Specifications
+    // (see ComputerSystemSpecifications / ScopeSpecifications) so they compose
+    // and are applied in-query, keeping pagination counts correct.
 }

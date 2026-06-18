@@ -45,8 +45,7 @@ public class TokenControllerIT {
         User u = new User();
         u.setUsername("svcuser");
         u.setEmail("svc@example.com");
-        u.setDepartment("dev");
-        u.setRole(role);
+        u.setRoles(new java.util.HashSet<>(java.util.Set.of(role)));
         userRepository.save(u);
 
         mockMvc.perform(post("/api/v1/tokens")

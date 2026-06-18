@@ -53,7 +53,7 @@ class ComputerSystemControllerTest {
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
                 .userId(1L)
-                .department("IT")
+                .departmentIds(java.util.Set.of(1L))
                 .macAddress("00:1A:2B:3C:4D:5E")
                 .ipAddress("192.168.1.100")
                 .networkName("PROD-NETWORK")
@@ -116,7 +116,7 @@ class ComputerSystemControllerTest {
         when(service.filterComputerSystems(any(), any(), any(), any())).thenReturn(page);
 
         mockMvc.perform(get("/api/v1/computer-systems/filter")
-                .param("department", "IT"))
+                .param("departmentId", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(1)));
 
