@@ -3,8 +3,8 @@ package com.demo.application.security.filter;
 import com.demo.application.security.jwt.JwtService;
 import com.demo.application.security.token.ApiTokenRepository;
 import com.demo.application.user.UserRepository;
+import com.demo.shared.security.UserPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,6 +22,11 @@ import java.time.LocalDateTime;
 /**
  * Validates Bearer JWTs and establishes authentication in the security context.
  * Falls back to persistent API tokens when JWT validation fails.
+ *
+ * <p>When the token subject (or API-token owner) resolves to a known domain user, the
+ * authentication principal is a {@link UserPrincipal} carrying the user's role-derived
+ * authorities and department designation, so method security and the authorization layer
+ * have a single source of truth.</p>
  */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
@@ -36,62 +41,70 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.passwordEncoder = passwordEncoder;
     }
 
-    /**
-     * Extracts the Bearer token from the Authorization header and attempts authentication.
-     *
-     * <p>Flow:</p>
-     * <ol>
-     *   <li>If the token validates as a JWT, parse the subject and set authentication.</li>
-     *   <li>If JWT validation fails, attempt the persistent token format (tokenId.secret).</li>
-     *   <li>For persistent tokens, verify hash + expiry, then authenticate as the owner user.</li>
-     * </ol>
-     *
-     * <p>No authorities are added for JWTs here; API tokens use the owner's role.</p>
-     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
             if (jwtService.validateToken(token)) {
-            // JWT path: use subject claim as principal when available
-                String principal = token;
-                try {
-                    SignedJWT jwt = SignedJWT.parse(token);
-                    if (jwt.getJWTClaimsSet().getSubject() != null) {
-                        principal = jwt.getJWTClaimsSet().getSubject();
-                    }
-                } catch (Exception ignored) { }
-
-                // JWTs do not embed authorities in this filter; downstream services use roles claim if needed
-                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, Collections.emptyList());
-                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(auth);
-            }
-            else {
-                // Fallback: persistent API token format (tokenId.secret)
-                if (token.contains(".")) {
-                    String[] parts = token.split("\\.", 2);
-                    if (parts.length == 2) {
-                        String tokenId = parts[0];
-                        String secret = parts[1];
-                        apiTokenRepository.findByTokenId(tokenId).ifPresent(t -> {
-                            if (!t.isRevoked() && t.getExpiresAt() != null && t.getExpiresAt().isAfter(LocalDateTime.now())) {
-                                if (passwordEncoder.matches(secret, t.getTokenHash())) {
-                                    // Load owner user and set authentication
-                                    userRepository.findById(t.getOwnerUserId()).ifPresent(user -> {
-                                        SimpleGrantedAuthority auth = new SimpleGrantedAuthority("ROLE_" + user.getRole().getName());
-                                        UsernamePasswordAuthenticationToken a = new UsernamePasswordAuthenticationToken(user.getUsername(), null, java.util.List.of(auth));
-                                        a.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                                        SecurityContextHolder.getContext().setAuthentication(a);
-                                    });
-                                }
-                            }
-                        });
-                    }
-                }
+                authenticateJwt(request, token);
+            } else {
+                authenticateApiToken(request, token);
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * JWT path: resolve the subject to a domain user when possible so authorities and
+     * department context are available; otherwise authenticate with the bare subject.
+     */
+    private void authenticateJwt(HttpServletRequest request, String token) {
+        String subject = token;
+        try {
+            SignedJWT jwt = SignedJWT.parse(token);
+            if (jwt.getJWTClaimsSet().getSubject() != null) {
+                subject = jwt.getJWTClaimsSet().getSubject();
+            }
+        } catch (Exception _) {
+            // fall back to the raw token as the principal name
+        }
+
+        UsernamePasswordAuthenticationToken auth = userRepository.findByUsername(subject)
+                .map(user -> {
+                    UserPrincipal principal = new UserPrincipal(user);
+                    return new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+                })
+                .orElseGet(() -> new UsernamePasswordAuthenticationToken(token, null, Collections.emptyList()));
+        auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+    }
+
+    /**
+     * Fallback: persistent API token format (tokenId.secret). Verifies hash + expiry,
+     * then authenticates as the owning user via a {@link UserPrincipal}.
+     */
+    private void authenticateApiToken(HttpServletRequest request, String token) {
+        if (!token.contains(".")) {
+            return;
+        }
+        String[] parts = token.split("\\.", 2);
+        if (parts.length != 2) {
+            return;
+        }
+        String tokenId = parts[0];
+        String secret = parts[1];
+        apiTokenRepository.findByTokenId(tokenId).ifPresent(t -> {
+            if (!t.isRevoked() && t.getExpiresAt() != null && t.getExpiresAt().isAfter(LocalDateTime.now())
+                    && passwordEncoder.matches(secret, t.getTokenHash())) {
+                userRepository.findById(t.getOwnerUserId()).ifPresent(user -> {
+                    UserPrincipal principal = new UserPrincipal(user);
+                    UsernamePasswordAuthenticationToken a =
+                            new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+                    a.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(a);
+                });
+            }
+        });
     }
 }

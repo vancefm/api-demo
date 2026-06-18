@@ -19,10 +19,13 @@ import java.util.Map;
 public class AuthController {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final SelfServiceProvisioningService provisioningService;
 
-    public AuthController(JwtService jwtService, AuthenticationManager authenticationManager) {
+    public AuthController(JwtService jwtService, AuthenticationManager authenticationManager,
+                          SelfServiceProvisioningService provisioningService) {
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
+        this.provisioningService = provisioningService;
     }
 
     public static class LoginRequest {
@@ -46,6 +49,10 @@ public class AuthController {
         } catch (AuthenticationException e) {
             return ResponseEntity.status(401).build();
         }
+
+        // Just-in-time provisioning: AD-authenticated users with no local record get a
+        // default self-service role so their grants exist before the token is issued.
+        provisioningService.provisionIfAbsent(req.username);
 
         // Extract roles from granted authorities and include in JWT claims
         java.util.List<String> roles = auth.getAuthorities().stream()

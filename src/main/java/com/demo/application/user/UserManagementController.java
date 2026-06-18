@@ -1,5 +1,6 @@
 package com.demo.application.user;
 
+import com.demo.domain.user.ChangePasswordRequest;
 import com.demo.domain.user.UserDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -72,6 +73,19 @@ public class UserManagementController {
     })
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         userManagementService.deleteUser(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/me/password")
+    @Operation(summary = "Change own password",
+               description = "Self-service password change for the authenticated user")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "Password changed successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid input"),
+        @ApiResponse(responseCode = "403", description = "Current password incorrect")
+    })
+    public ResponseEntity<Void> changeOwnPassword(@Valid @RequestBody ChangePasswordRequest request) {
+        userManagementService.changeOwnPassword(request.currentPassword(), request.newPassword());
         return ResponseEntity.noContent().build();
     }
 }

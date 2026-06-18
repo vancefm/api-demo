@@ -2,6 +2,7 @@ package com.demo.domain.computersystem;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
@@ -9,6 +10,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.Set;
 
 @Schema(description = "Computer System Data Transfer Object")
 @Getter
@@ -37,9 +40,12 @@ public class ComputerSystemDto {
     @Schema(description = "Assigned user ID", example = "1")
     private Long userId;
 
-    @NotBlank(message = "Department is required")
-    @Schema(description = "Department", example = "IT")
-    private String department;
+    @NotEmpty(message = "At least one department is required")
+    @Schema(description = "Ids of the departments this system belongs to", example = "[1, 2]")
+    private Set<Long> departmentIds;
+
+    @Schema(description = "Names of the departments this system belongs to (read-only)", example = "[\"IT\", \"Finance\"]", accessMode = Schema.AccessMode.READ_ONLY)
+    private Set<String> departmentNames;
 
     @NotBlank(message = "MAC address is required")
     @Pattern(regexp = "^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$", message = "Invalid MAC address format")

@@ -1,10 +1,13 @@
 package com.demo.application.computersystem;
 
+import com.demo.application.department.DepartmentRepository;
 import com.demo.application.security.auth.RoleRepository;
 import com.demo.application.user.UserRepository;
 import com.demo.domain.computersystem.ComputerSystem;
+import com.demo.domain.department.Department;
 import com.demo.domain.security.role.Role;
 import com.demo.domain.user.User;
+import com.demo.shared.security.CurrentUserAuditorAware;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.demo.shared.config.JpaConfig;
@@ -14,10 +17,13 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
-@Import(JpaConfig.class)
+@Import({JpaConfig.class, CurrentUserAuditorAware.class})
 class ComputerSystemRepositoryIT {
 
     @Autowired
@@ -29,8 +35,12 @@ class ComputerSystemRepositoryIT {
     @Autowired
     private RoleRepository roleRepository;
 
+    @Autowired
+    private DepartmentRepository departmentRepository;
+
     private ComputerSystem testSystem;
     private User testUser;
+    private Department testDepartment;
 
     @BeforeEach
     void setUp() {
@@ -39,11 +49,13 @@ class ComputerSystemRepositoryIT {
             .description("Test role")
             .build());
 
+        testDepartment = departmentRepository.save(Department.builder().name("IT").build());
+
         testUser = userRepository.save(User.builder()
             .username("admin")
             .email("admin@example.com")
-            .department("IT")
-            .role(role)
+            .departments(new HashSet<>(Set.of(testDepartment)))
+            .roles(new HashSet<>(Set.of(role)))
             .build());
 
         testSystem = ComputerSystem.builder()
@@ -53,7 +65,7 @@ class ComputerSystemRepositoryIT {
             .manufacturer("Dell")
             .model("PowerEdge R750")
             .systemUser(testUser)
-            .department("IT")
+            .departments(new HashSet<>(Set.of(testDepartment)))
             .networkName("VLAN-001")
             .build();
     }
@@ -69,7 +81,7 @@ class ComputerSystemRepositoryIT {
     void testFindById() {
         ComputerSystem saved = repository.save(testSystem);
         var found = repository.findById(saved.getId());
-        
+
         assertTrue(found.isPresent());
         assertEquals(saved.getId(), found.get().getId());
     }
@@ -78,7 +90,7 @@ class ComputerSystemRepositoryIT {
     void testFindByHostname() {
         repository.save(testSystem);
         var found = repository.findByHostname("TEST-SERVER");
-        
+
         assertTrue(found.isPresent());
         assertEquals("TEST-SERVER", found.get().getHostname());
     }
@@ -87,7 +99,7 @@ class ComputerSystemRepositoryIT {
     void testFindAll() {
         repository.save(testSystem);
         Page<ComputerSystem> results = repository.findAll(PageRequest.of(0, 10));
-        
+
         assertFalse(results.isEmpty());
         assertTrue(results.getContent().stream()
             .anyMatch(cs -> cs.getHostname().equals("TEST-SERVER")));
@@ -98,7 +110,7 @@ class ComputerSystemRepositoryIT {
         ComputerSystem saved = repository.save(testSystem);
         saved.setHostname("UPDATED-SERVER");
         repository.save(saved);
-        
+
         var updated = repository.findById(saved.getId()).get();
         assertEquals("UPDATED-SERVER", updated.getHostname());
     }
@@ -107,7 +119,7 @@ class ComputerSystemRepositoryIT {
     void testDeleteById() {
         ComputerSystem saved = repository.save(testSystem);
         repository.deleteById(saved.getId());
-        
+
         var found = repository.findById(saved.getId());
         assertTrue(found.isEmpty());
     }
@@ -115,7 +127,7 @@ class ComputerSystemRepositoryIT {
     @Test
     void testDuplicateHostnameConstraint() {
         repository.save(testSystem);
-        
+
         ComputerSystem duplicate = ComputerSystem.builder()
             .hostname("TEST-SERVER")
             .ipAddress("192.168.1.101")
@@ -123,10 +135,10 @@ class ComputerSystemRepositoryIT {
             .manufacturer("Dell")
             .model("PowerEdge R750")
             .systemUser(testUser)
-            .department("IT")
+            .departments(new HashSet<>(Set.of(testDepartment)))
             .networkName("VLAN-001")
             .build();
-        
+
         assertThrows(Exception.class, () -> repository.save(duplicate));
     }
 }

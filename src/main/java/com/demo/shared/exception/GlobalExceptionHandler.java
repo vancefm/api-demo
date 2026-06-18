@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -176,6 +177,24 @@ public class GlobalExceptionHandler {
         problem.setProperty("timestamp", Instant.now());
 
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(problem);
+    }
+
+    /**
+     * Handles authorization failures (HTTP 403) raised by the access-control layer.
+     * Declared explicitly so the catch-all handler below does not turn denials into 500s.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ProblemDetail> handleAccessDenied(
+            AccessDeniedException ex,
+            HttpServletRequest request) {
+
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.FORBIDDEN);
+        problem.setTitle("Access Denied");
+        problem.setDetail(ex.getMessage());
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("timestamp", Instant.now());
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
     }
 
     /**

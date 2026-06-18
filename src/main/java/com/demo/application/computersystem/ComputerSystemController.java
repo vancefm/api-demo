@@ -95,11 +95,11 @@ public class ComputerSystemController {
     @Parameter(name = "sort", description = "Sort criteria (e.g., 'id,desc')", example = "id,asc", in = ParameterIn.QUERY)
     public ResponseEntity<Page<ComputerSystemDto>> filterComputerSystems(
             @RequestParam(required = false) String hostname,
-            @RequestParam(required = false) String department,
+            @RequestParam(required = false) Long departmentId,
             @RequestParam(required = false) Long userId,
             @PageableDefault(size = 20, page = 0, sort = "id", direction = Sort.Direction.ASC) Pageable pageable) {
         Page<ComputerSystemDto> computerSystems = computerSystemService.filterComputerSystems(
-                hostname, department, userId, pageable);
+                hostname, departmentId, userId, pageable);
         return ResponseEntity.ok(computerSystems);
     }
 
