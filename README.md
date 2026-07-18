@@ -1885,81 +1885,78 @@ Field permissions are stored as JSON in the `field_permissions` column:
 
 ### Code Organization
 
-The RBAC system follows a clean, modular package structure with separation of concerns:
+The codebase is organized **by feature** rather than by technical layer: each business
+capability owns its entity, DTO, mapper, repository, service, and controller in a single
+package, instead of being split across separate domain/application packages.
 
-#### Domain Layer (`com.demo.domain`)
-
-Entity types are organized in their own packages, each containing the entity and its DTO:
+#### Feature packages (`com.demo.feature`)
 
 ```
-domain/
-├── computersystem/
-│   ├── ComputerSystem.java          // Entity
-│   └── ComputerSystemDto.java       // Data Transfer Object
+feature/
 ├── user/
-│   ├── User.java                    // Entity
-│   └── UserDto.java                 // Data Transfer Object
-├── security/
-│   ├── Role.java                    // Entity
-│   ├── Permission.java              // Entity
-│   ├── RolePermission.java          // Junction Entity
-│   └── dto/
-│       ├── RoleDto.java
-│       └── PermissionDto.java
-└── batch/
-    ├── BatchComputerSystemRequest.java
-    └── BatchComputerSystemResponse.java
-```
-
-**Pattern**: Each domain entity type gets its own package containing both the entity and DTO, promoting modularity and making it easy to locate related files.
-
-#### Application Layer (`com.demo.application`)
-
-Repositories, services, and controllers are organized by domain:
-
-```
-application/
+│   ├── User.java, UserDto.java, UserMapper.java
+│   └── UserRepository.java, UserManagementService.java, UserManagementController.java
 ├── computersystem/
-│   ├── ComputerSystemRepository.java
-│   ├── ComputerSystemService.java
-│   └── ComputerSystemController.java
-├── user/
-│   ├── UserRepository.java
-│   ├── UserManagementService.java
-│   └── UserManagementController.java
-├── security/
-│   ├── RoleRepository.java
-│   ├── PermissionRepository.java
-│   ├── RolePermissionRepository.java
-│   ├── RoleManagementService.java
-│   ├── RoleManagementController.java
-│   ├── EmbeddedLdapTestConfig.java   // Test-only: embedded LDAP server config
-│   ├── EmbeddedLdapAuthenticationTest.java  // LDAP auth unit tests
-│   └── LdapIntegrationTest.java      // LDAP integration tests
-└── batch/
-    └── BatchComputerSystemController.java
+│   ├── ComputerSystem.java, ComputerSystemDto.java, ComputerSystemMapper.java
+│   ├── ComputerSystemRepository.java, ComputerSystemService.java, ComputerSystemController.java
+│   ├── ComputerSystemMetrics.java
+│   └── batch/
+│       ├── BatchComputerSystemRequest.java, BatchComputerSystemResponse.java
+│       ├── BatchComputerSystemController.java
+│       └── BatchProperties.java
+└── security/
+    ├── role/            — Role.java, RoleDto.java, RoleMapper.java
+    ├── permission/       — Permission.java, PermissionDto.java, PermissionMapper.java
+    ├── rolepermission/  — RolePermission.java (junction entity)
+    ├── auth/             — AuthController, RoleManagementController/Service, RoleRepository, PermissionRepository, RolePermissionRepository
+    ├── jwt/              — JwtService, JwtProperties, JwksController
+    ├── token/            — ApiToken, ApiTokenRepository, ApiTokenService, TokenController
+    ├── session/          — SessionStore, SessionRepository
+    ├── config/           — SecurityConfig, ActiveDirectoryConfig, ActiveDirectoryProperties
+    ├── db/               — DbUserDetailsService
+    ├── filter/           — JwtAuthenticationFilter
+    └── (RBAC engine)     — RolePermissionService, AuthorizationService, FieldPermissionFilterService,
+                             FieldPermissionsConfig, RoleInitializationService, AuthenticationContext,
+                             CustomUserPrincipal, ApiTokenPrincipal
 ```
 
-**Pattern**: Each domain gets its own package in the application layer, containing its repository, service, and controller. This maintains consistency and makes it easy to navigate the codebase.
+**Pattern**: entities/DTOs may reference across features directly (e.g. `ComputerSystem`
+referencing `User`), but repositories and internal helpers should stay package-private —
+cross-feature access should go through a feature's public service methods, not its
+repository. `security` is treated as a feature in its own right (auth, JWT, RBAC engine),
+consumed by other features rather than depending on them.
 
-#### Shared Layer (`com.demo.shared`)
+#### Integration layer (`com.demo.integration`)
 
-Cross-cutting concerns like security services, exception handling, and utilities:
+Outbound adapters to external systems, kept out of the feature packages so the transport
+(HTTP client, AMQP, SMTP, etc.) can change without touching feature code:
 
 ```
-shared/
-├── security/
-│   ├── RolePermissionService.java         // Permission caching
-│   ├── AuthorizationService.java          // Access control checks
-│   ├── FieldPermissionFilterService.java  // DTO field filtering
-│   ├── FieldPermissionsConfig.java        // Immutable field definitions
-│   ├── RoleInitializationService.java     // Default role setup
-│   ├── CustomUserPrincipal.java           // User security principal
-│   ├── ApiTokenPrincipal.java             // API token principal
-│   └── AuthenticationContext.java         // Thread-local auth context
-└── exception/
-    ├── DuplicateResourceException.java
-    └── ResourceNotFoundException.java
+integration/
+└── mail/
+    ├── EmailNotificationService.java   // outbound admin-alert email
+    └── NoOpMailConfig.java             // no-op fallback bean
+```
+
+As HTTP clients or RabbitMQ producers/listeners are added, they follow the same rule:
+colocate with the feature that owns the integration by default (e.g. `feature/x/client/`),
+and only add to `integration/` when a piece of infra is genuinely shared across features
+(e.g. a common `RestClient.Builder` or the AMQP connection/exchange config).
+
+#### Platform layer (`com.demo.platform`)
+
+Renamed from `shared` — genuinely generic, feature-agnostic infrastructure only:
+
+```
+platform/
+├── BaseEntity.java                        // id, createdAt, updatedAt auditing
+├── config/
+│   ├── OpenApiConfig.java, WebConfig.java, MetricsConfiguration.java, JpaConfig.java
+├── exception/
+│   ├── DuplicateResourceException.java, ResourceNotFoundException.java
+│   ├── ErrorResponse.java, GlobalExceptionHandler.java
+└── interceptor/
+    └── GlobalRateLimitInterceptor.java
 ```
 
 ### Admin APIs
