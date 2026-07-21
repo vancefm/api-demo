@@ -1,9 +1,7 @@
 package com.demo.feature.computersystem;
 
-import com.demo.feature.security.auth.RoleRepository;
 import com.demo.feature.user.UserRepository;
 import com.demo.feature.computersystem.ComputerSystem;
-import com.demo.feature.security.role.Role;
 import com.demo.feature.user.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,24 +24,15 @@ class ComputerSystemRepositoryIT {
     @Autowired
     private UserRepository userRepository;
 
-    @Autowired
-    private RoleRepository roleRepository;
-
     private ComputerSystem testSystem;
     private User testUser;
 
     @BeforeEach
     void setUp() {
-        Role role = roleRepository.save(Role.builder()
-            .name("MY_APP_USER")
-            .description("Test role")
-            .build());
-
         testUser = userRepository.save(User.builder()
             .username("admin")
             .email("admin@example.com")
             .department("IT")
-            .role(role)
             .build());
 
         testSystem = ComputerSystem.builder()

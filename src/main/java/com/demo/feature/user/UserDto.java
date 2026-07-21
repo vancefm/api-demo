@@ -2,7 +2,6 @@ package com.demo.feature.user;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -32,13 +31,6 @@ public class UserDto {
     @NotBlank(message = "Department is required")
     @Schema(description = "Department", example = "IT")
     private String department;
-    
-    @NotNull(message = "Role ID is required")
-    @Schema(description = "Role ID", example = "1")
-    private Long roleId;
-    
-    @Schema(description = "Role name (read-only)", example = "MY_APP_USER")
-    private String roleName;
 
     @Schema(description = "Manager user ID", example = "2")
     private Long managerId;
