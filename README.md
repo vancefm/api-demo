@@ -41,18 +41,6 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
     - [Access Swagger UI](#access-swagger-ui)
     - [Access H2 Console](#access-h2-console)
   - [Advanced Topics](#advanced-topics)
-    - [Rate Limiting](#rate-limiting)
-      - [How It Works](#how-it-works)
-      - [Configuration](#configuration-1)
-      - [Implementation Details](#implementation-details)
-      - [Rate Limit Exceeded Response](#rate-limit-exceeded-response)
-      - [Testing Rate Limits](#testing-rate-limits)
-      - [Monitoring Rate Limiting](#monitoring-rate-limiting)
-      - [Extending Rate Limiting](#extending-rate-limiting)
-        - [Option 1: Adjust Global Limits](#option-1-adjust-global-limits)
-        - [Option 2: Add Per-Endpoint Limits](#option-2-add-per-endpoint-limits)
-        - [Option 3: Client-Based Rate Limiting](#option-3-client-based-rate-limiting)
-      - [Best Practices](#best-practices)
     - [Request/Response Compression](#requestresponse-compression)
       - [Configuration](#configuration-2)
       - [How It Works](#how-it-works-1)
@@ -85,11 +73,13 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
       - [What Actuator Provides](#what-actuator-provides)
       - [Configuration](#configuration-5)
       - [Health Checks](#health-checks)
-      - [Monitoring Rate Limiter Metrics](#monitoring-rate-limiter-metrics)
+      - [Monitoring Circuit Breaker Metrics](#monitoring-circuit-breaker-metrics)
       - [Integration with Monitoring Systems](#integration-with-monitoring-systems)
       - [Example Kubernetes Configuration](#example-kubernetes-configuration)
       - [Best Practices](#best-practices-5)
-  - [Recent Updates (November 2025)](#recent-updates-november-2025)
+  - [Recent Updates (June 2026)](#recent-updates-june-2026)
+    - [Auth & Rate-Limiting Overhaul](#auth--rate-limiting-overhaul-branch-overhaulauth-features)
+    - [Spring Boot 4.1 / JDK 25 Upgrade](#spring-boot-41--jdk-25-upgrade)
     - [RFC 9457 ProblemDetail Migration](#rfc-9457-problemdetail-migration)
   - [Observability \& Metrics](#observability--metrics)
     - [Accessing Metrics](#accessing-metrics)
@@ -106,52 +96,7 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
       - [Spring Boot Health Endpoint](#spring-boot-health-endpoint)
       - [Integrating with Monitoring Systems](#integrating-with-monitoring-systems)
     - [Metrics Configuration](#metrics-configuration)
-  - [Authentication \& Authorization](#authentication--authorization)
-    - [Overview](#overview)
-    - [Key Features](#key-features)
-    - [Architecture \& Flow](#architecture--flow)
-    - [Database Schema](#database-schema)
-      - [Roles Table](#roles-table)
-      - [Permissions Table](#permissions-table)
-      - [Role\_Permissions Table (Junction)](#role_permissions-table-junction)
-      - [Users Table](#users-table)
-    - [Default Roles](#default-roles)
-      - [MY\_APP\_SUPERADMIN](#my_app_superadmin)
-      - [MY\_APP\_ADMIN](#my_app_admin)
-      - [MY\_APP\_USER](#my_app_user)
-    - [Field Permission Configuration](#field-permission-configuration)
-    - [Admin APIs](#admin-apis)
-      - [Role Management](#role-management)
-      - [Permission Management](#permission-management)
-      - [Role-Permission Assignment](#role-permission-assignment)
-      - [Cache Management](#cache-management)
-    - [User APIs](#user-apis)
-    - [Step-by-Step: Adding a New Object Type](#step-by-step-adding-a-new-object-type)
-      - [Step 1: Define the Entity](#step-1-define-the-entity)
-      - [Step 2: Update FieldPermissionsConfig](#step-2-update-fieldpermissionsconfig)
-      - [Step 3: Create Permissions via Admin API](#step-3-create-permissions-via-admin-api)
-      - [Step 4: Assign Permissions to Roles](#step-4-assign-permissions-to-roles)
-      - [Step 5: Reload Cache](#step-5-reload-cache)
-    - [Step-by-Step: Adding a New Field to Existing Object](#step-by-step-adding-a-new-field-to-existing-object)
-      - [Step 1: Update Entity](#step-1-update-entity)
-      - [Step 2: Update DTO](#step-2-update-dto)
-      - [Step 3: Decide Field Permissions](#step-3-decide-field-permissions)
-      - [Step 4: Update Permissions via Admin API](#step-4-update-permissions-via-admin-api)
-      - [Step 5: Reload Cache](#step-5-reload-cache-1)
-    - [Security Best Practices](#security-best-practices)
-    - [Testing Scenarios](#testing-scenarios)
-      - [Test 1: User Can Only Access Own Resources](#test-1-user-can-only-access-own-resources)
-      - [Test 2: Admin Can Access Department Resources](#test-2-admin-can-access-department-resources)
-      - [Test 3: Field-Level Restrictions](#test-3-field-level-restrictions)
-      - [Test 4: Super Admin Has Full Access](#test-4-super-admin-has-full-access)
-    - [Troubleshooting Guide](#troubleshooting-guide)
-      - [Problem: Permission changes not taking effect](#problem-permission-changes-not-taking-effect)
-      - [Problem: User cannot access their own resources](#problem-user-cannot-access-their-own-resources)
-      - [Problem: Field appears in response but shouldn't](#problem-field-appears-in-response-but-shouldnt)
-      - [Problem: Cannot create/update role](#problem-cannot-createupdate-role)
-      - [Problem: Slow permission checks](#problem-slow-permission-checks)
-    - [Performance Considerations](#performance-considerations)
-    - [Future Enhancements](#future-enhancements)
+  - [Code Organization](#code-organization)
   - [Ideas for future Enhancements](#ideas-for-future-enhancements)
   - [License](#license)
   - [Support](#support)
@@ -169,7 +114,6 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
 - **Pagination**: Support for page, size, and sorting
 - **Filtering**: Advanced filtering capabilities
 - **Sorting**: Customizable sorting by any field
-- **Rate Limiting**: Global rate limiting with Resilience4j to protect against abuse
 - **Response Compression**: GZIP compression for improved performance and bandwidth savings
 - **Logging**: Comprehensive logging at service and controller levels
 - **Constructor Injection**: Dependency injection via constructors
@@ -408,15 +352,12 @@ mvn test jacoco:report
 ```
 
 Test Summary:
-- **Total Tests**: 56 (all passing ✅)
+- **Total Tests**: 40 (all passing ✅)
 - **Repository Tests**: 7 (Data access layer - `@DataJpaTest`)
 - **Service Tests**: 10 (Business logic - mocked dependencies)
 - **Controller Tests**: 7 (REST endpoints - mocked services)
 - **Integration Tests**: 6 (Full application - real database with `@Transactional`)
 - **Batch Controller Tests**: 10 (Batch operations)
-- **LDAP Authentication Tests**: 6 (Embedded LDAP authentication and role mapping)
-- **LDAP Integration Tests**: 8 (End-to-end login flow and access control with embedded LDAP)
-- **Security Token Tests**: 2 (Token creation and controller tests)
 
 ### Test Architecture
 
@@ -466,17 +407,6 @@ class ComputerSystemIntegrationTest {
 }
 ```
 
-#### 5. LDAP Authentication Tests (`@SpringBootTest` + `@Import`)
-- **Purpose**: Verify embedded LDAP authentication and LDAP group → application role mapping
-- **LDAP Server**: Embedded UnboundID in-memory LDAP server started by `EmbeddedLdapTestConfig`
-- **Users**: Seeded from `test-ldap-users.ldif` (`user1`, `user2`, `admin1`, `superadmin1`)
-- **Key Assertions**: Correct roles assigned per group membership, dual-group membership (admin1), bad credentials rejected
-
-#### 6. LDAP Integration Tests (`@SpringBootTest` + `@AutoConfigureMockMvc` + `@Import`)
-- **Purpose**: End-to-end HTTP tests of login flow and endpoint access control using LDAP credentials
-- **Security Filters**: Enabled (no `addFilters=false`)
-- **Key Assertions**: Login returns JWT, invalid credentials return 401, regular users cannot access admin endpoints, super-admins can access admin endpoints
-
 ### Configuration
 
 Application configuration is in `src/main/resources/application.yml`:
@@ -511,177 +441,6 @@ Navigate to `http://localhost:8080/h2-console` to access the H2 database console
 - Password: (leave empty)
 
 ## Advanced Topics
-
-### Rate Limiting
-
-Rate limiting protects your API from abuse and ensures fair usage among clients. This API implements **global rate limiting** that applies to all `/api/**` endpoints using Resilience4j's token bucket algorithm.
-
-#### How It Works
-
-The global rate limiter uses a **token bucket** algorithm:
-- **Tokens**: Each request consumes 1 token
-- **Bucket Capacity**: 1000 tokens per minute (configurable)
-- **Refill Rate**: Tokens refill at the end of each minute
-- **Global Scope**: Single limit shared across all endpoints and clients
-
-#### Configuration
-
-Rate limiting is configured in `application.yml`:
-
-```yaml
-resilience4j:
-  ratelimiter:
-    instances:
-      global-api:
-        registerHealthIndicator: true
-        limitRefreshPeriod: 1m              # Refill period (1 minute)
-        limitForPeriod: 1000                # Requests per refill period
-        timeoutDuration: 5s                 # Timeout waiting for available token
-        eventConsumerBufferSize: 100
-        allowHealthIndicatorToFail: false
-```
-
-**Configuration Parameters:**
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `limitRefreshPeriod` | 1m | Time interval to refill tokens |
-| `limitForPeriod` | 1000 | Number of tokens available per period |
-| `timeoutDuration` | 5s | Maximum wait time for a token |
-| `registerHealthIndicator` | true | Register with Spring Boot health checks |
-
-#### Implementation Details
-
-**Global Interceptor** (`GlobalRateLimitInterceptor.java`):
-- Intercepts all `/api/**` requests
-- Attempts to acquire a permit from the rate limiter
-- Returns 429 (Too Many Requests) if limit exceeded
-- Adds `X-Rate-Limit-Available-Permits` header to responses
-- Excludes: Swagger UI, API docs, H2 console, actuator endpoints
-
-**Web Configuration** (`WebConfig.java`):
-- Registers the interceptor with Spring MVC
-- Specifies path patterns to apply rate limiting
-- Configures exclusions for non-API endpoints
-
-#### Rate Limit Exceeded Response
-
-When rate limit is exceeded, the API returns HTTP 429:
-
-```json
-HTTP/1.1 429 Too Many Requests
-
-{
-  "status": 429,
-  "message": "Too Many Requests",
-  "details": "Rate limit exceeded. Please try again later."
-}
-```
-
-Response header indicates available permits:
-```
-X-Rate-Limit-Available-Permits: 0
-```
-
-#### Testing Rate Limits
-
-```bash
-# Make rapid requests to test rate limiting
-for i in {1..1005}; do
-  curl -i http://localhost:8080/api/v1/computer-systems
-done
-
-# After 1000 requests, subsequent requests will receive 429 responses
-```
-
-#### Monitoring Rate Limiting
-
-View rate limiter metrics via Spring Boot Actuator:
-
-```bash
-# Health check
-curl http://localhost:8080/actuator/health
-
-# Rate limiter metrics
-curl http://localhost:8080/actuator/metrics/resilience4j.ratelimiter.calls
-```
-
-#### Extending Rate Limiting
-
-##### Option 1: Adjust Global Limits
-
-Modify `limitForPeriod` in `application.yml`:
-
-```yaml
-resilience4j:
-  ratelimiter:
-    instances:
-      global-api:
-        limitForPeriod: 2000              # Increase to 2000 requests/minute
-```
-
-##### Option 2: Add Per-Endpoint Limits
-
-Create additional rate limiter instances for stricter limits on expensive operations:
-
-```yaml
-resilience4j:
-  ratelimiter:
-    instances:
-      global-api:
-        limitForPeriod: 1000              # Global limit
-      
-      expensive-operation:
-        limitForPeriod: 100               # Stricter limit for heavy operations
-        limitRefreshPeriod: 1m
-```
-
-Then apply to specific endpoints:
-
-```java
-@PostMapping
-@RateLimiter(name = "expensive-operation")
-public ResponseEntity<ComputerSystemDto> createComputerSystem(@Valid @RequestBody ComputerSystemDto dto) {
-    // Limited to 100 requests/minute (stricter than global)
-    return ResponseEntity.status(HttpStatus.CREATED).body(computerSystemService.createComputerSystem(dto));
-}
-```
-
-##### Option 3: Client-Based Rate Limiting
-
-Implement different limits per client type (requires authentication):
-
-```java
-public class ClientAwareRateLimitInterceptor implements HandlerInterceptor {
-    @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        String clientId = request.getHeader("X-Client-ID");
-        String tier = getClientTier(clientId);  // premium, standard, free
-        
-        String rateLimitName = tier.equals("premium") ? "premium-api" : "standard-api";
-        RateLimiter limiter = registry.rateLimiter(rateLimitName);
-        
-        if (limiter.acquirePermission()) {
-            return true;
-        }
-        response.setStatus(429);
-        return false;
-    }
-}
-```
-
-#### Best Practices
-
-1. **Set Realistic Limits**: Base on expected traffic and server capacity
-2. **Monitor Violations**: Track rate limit rejections to detect abuse
-3. **Client Communication**: Provide clear error messages and retry guidance
-4. **Exclude Healthchecks**: Don't rate limit monitoring and health endpoints
-5. **Graceful Degradation**: Return helpful information in 429 responses
-6. **Documentation**: Inform API clients about rate limits
-7. **Testing**: Test behavior under rate limit conditions
-8. **Combine with Circuit Breaker**: See Circuit Breaker Pattern section for downstream service protection
-
----
 
 ### Request/Response Compression
 
@@ -973,8 +732,7 @@ curl http://localhost:8080/actuator/health
 3. **Set Realistic Thresholds**: 
    - Email: 50% failures (less tolerant, SMTP should be reliable)
    - Database: 60% failures (more tolerant, temporary slowness OK)
-4. **Combine with Rate Limiting**: Use together for complete fault tolerance
-5. **Test Fallbacks**: Verify fallback methods work correctly under load
+4. **Test Fallbacks**: Verify fallback methods work correctly under load
 6. **Logging**: Log when circuit opens/closes for debugging and monitoring
 7. **Timeout Settings**: Set reasonable timeouts to avoid long waits before circuit opens
 8. **Alternative Channels**: For critical alerts (email down), use alternative notification (SMS, Slack)
@@ -1360,9 +1118,9 @@ Actuator enables the following endpoints:
 
 | Endpoint | Purpose | Example |
 |----------|---------|---------|
-| `/actuator/health` | Application and component health status | Health of database, dependencies, rate limiter |
+| `/actuator/health` | Application and component health status | Health of database, circuit breakers, dependencies |
 | `/actuator/metrics` | Available metrics in the application | List of all metrics and their values |
-| `/actuator/metrics/{metric}` | Specific metric details | `resilience4j.ratelimiter.calls` |
+| `/actuator/metrics/{metric}` | Specific metric details | `resilience4j.circuitbreaker.calls` |
 | `/actuator/prometheus` | Metrics in Prometheus format | For integration with monitoring systems |
 | `/actuator/info` | Application information | Version, description, custom properties |
 
@@ -1386,7 +1144,7 @@ management:
 | Parameter | Value | Description |
 |-----------|-------|-------------|
 | `exposure.include` | health,metrics,prometheus | Endpoints exposed over HTTP |
-| `show-details` | always | Show detailed health information (database, rate limiter, etc.) |
+| `show-details` | always | Show detailed health information (database, circuit breakers, etc.) |
 
 #### Health Checks
 
@@ -1407,10 +1165,10 @@ curl http://localhost:8080/actuator/health
         "validationQuery": "SELECT 1"
       }
     },
-    "resilience4j-ratelimiter": {
+    "resilience4j-circuitbreaker": {
       "status": "UP",
       "details": {
-        "global-api": {
+        "emailService": {
           "status": "UP"
         }
       }
@@ -1425,20 +1183,20 @@ curl http://localhost:8080/actuator/health
 - Load balancer health monitoring
 - Automated alerting systems
 
-#### Monitoring Rate Limiter Metrics
+#### Monitoring Circuit Breaker Metrics
 
-Actuator integrates with Resilience4j to expose detailed rate limiter metrics:
+Actuator integrates with Resilience4j to expose detailed circuit breaker metrics:
 
 ```bash
 # View all available metrics
 curl http://localhost:8080/actuator/metrics
 
-# Get rate limiter call metrics
-curl http://localhost:8080/actuator/metrics/resilience4j.ratelimiter.calls
+# Get circuit breaker call metrics
+curl http://localhost:8080/actuator/metrics/resilience4j.circuitbreaker.calls
 
 # Response
 {
-  "name": "resilience4j.ratelimiter.calls",
+  "name": "resilience4j.circuitbreaker.calls",
   "measurements": [
     {
       "statistic": "COUNT",
@@ -1452,10 +1210,10 @@ curl http://localhost:8080/actuator/metrics/resilience4j.ratelimiter.calls
 
 | Metric | Description |
 |--------|-------------|
-| `resilience4j.ratelimiter.calls` | Total number of calls (successful + rejected) |
-| `resilience4j.ratelimiter.calls.successful` | Permitted requests |
-| `resilience4j.ratelimiter.calls.rejected` | Rejected requests (429 responses) |
-| `resilience4j.ratelimiter.calls.delayed` | Requests waiting for available tokens |
+| `resilience4j.circuitbreaker.calls` | Total number of calls |
+| `resilience4j.circuitbreaker.state` | Current state (CLOSED/OPEN/HALF_OPEN) |
+| `resilience4j.circuitbreaker.failure.rate` | Percentage of failed calls |
+| `resilience4j.circuitbreaker.slow.call.rate` | Percentage of slow calls |
 
 #### Integration with Monitoring Systems
 
@@ -1466,10 +1224,9 @@ Export metrics to Prometheus/Grafana for dashboards:
 curl http://localhost:8080/actuator/prometheus
 
 # Output
-# HELP resilience4j_ratelimiter_calls_total Total number of calls
-# TYPE resilience4j_ratelimiter_calls_total counter
-resilience4j_ratelimiter_calls_total{instance="global-api"} 950
-resilience4j_ratelimiter_calls_rejected_total{instance="global-api"} 5
+# HELP app_computersystems_total Total number of computer systems
+# TYPE app_computersystems_total gauge
+app_computersystems_total 42.0
 ```
 
 **Prometheus Configuration Example:**
@@ -1518,14 +1275,21 @@ spec:
 
 1. **Expose Only Required Endpoints**: Use `exposure.include` to limit exposure
 2. **Secure Actuator Endpoints**: Add authentication/authorization in production
-3. **Monitor Metrics**: Set up alerts for concerning metrics (high rejection rates, etc.)
+3. **Monitor Metrics**: Set up alerts for concerning metrics (high failure rates, etc.)
 4. **Health Checks**: Use for load balancer and orchestrator integration
-5. **Rate Limiter Monitoring**: Track rejection rates to detect abuse
+5. **Circuit Breaker Monitoring**: Track failure rates and open-circuit events
 6. **Performance Impact**: Actuator adds minimal overhead; metrics collection is efficient
 
 ---
 
 ## Recent Updates (June 2026)
+
+### Auth & Rate-Limiting Overhaul (branch `overhaul/auth-features`)
+- **Removed the authentication & authorization implementation** pending a rebuild: JWT signing/JWKS, persistent API tokens, Active Directory / embedded-LDAP login, the database-driven RBAC model (roles, permissions, role-permissions, field-level permissions), and the associated controllers, filters, and startup seeding were all deleted.
+- **`SecurityConfig` is now a minimal permit-all stub** (`@EnableWebSecurity` + a single `SecurityFilterChain` that permits every request). **The API is currently open** — no login, tokens, or role checks. The Spring Security / LDAP / JWT dependencies remain declared in `pom.xml` for the rebuild.
+- **`User` keeps its profile fields and `manager` relation** but lost its `role` coupling (the RBAC `Role` entity was removed).
+- **Removed application-level rate limiting**: the `GlobalRateLimitInterceptor`, `WebConfig`, and the `resilience4j.ratelimiter` configuration are gone. Circuit breakers (Resilience4j) and response compression are unaffected.
+- **Removed dead/half-built scaffolding** found during the cleanup: an unused `SessionStore`/`SessionRepository`, a broken `app_config.gateway` toggle, and dangling `persistent-tokens` config.
 
 ### Spring Boot 4.1 / JDK 25 Upgrade
 - **Upgraded to Spring Boot 4.1.0** (Spring Framework 7, Spring Security 7.1, Hibernate ORM 7) and **JDK 25**; the compiler now targets Java 25.
@@ -1648,7 +1412,7 @@ The metric will be automatically discovered and registered via Spring's componen
 GET http://localhost:8080/actuator/health
 ```
 
-Includes health status for all managed components (database, rate limiters, circuit breakers, etc.).
+Includes health status for all managed components (database, circuit breakers, etc.).
 
 #### Integrating with Monitoring Systems
 
@@ -1684,206 +1448,7 @@ management:
         include: health,metrics,prometheus
 ```
 
-## Authentication & Authorization
-
-This API implements a comprehensive, database-driven Role-Based Access Control (RBAC) system with field-level permissions.
-
-### Overview
-
-The RBAC system provides three layers of security:
-
-1. **Authentication**: Validate user identity (Active Directory, LDAP, or API tokens)
-2. **Object-Level Authorization**: Control which resources users can access
-3. **Field-Level Authorization**: Control which fields users can read and write
-
-Active Directory authentication uses `sAMAccountName` for login. AD group memberships are mapped to roles via the YAML configuration – nothing is hard-coded in Java.
-
-#### Role Mapping Configuration
-
-AD roles are configured under `security.active-directory.role-to-ad-groups`. Each role key maps to a list of one or more AD group CNs. Any group in the list grants that role.
-
-```yaml
-security:
-  active-directory:
-    role-to-ad-groups:
-      MY_APP_USER:
-        - GroupA-Users
-      MY_APP_ADMIN:
-        - GroupB-Admins
-        - GroupB-Helpdesk
-      MY_APP_SUPERADMIN:
-        - GroupC-SuperAdmins
-```
-
-> **Fallback**: Users who authenticate successfully but belong to none of the mapped AD groups are automatically granted the `ROLE_MY_APP_USER` role.
-
-For testing and local development, an **embedded LDAP server** (UnboundID) provides authentication without requiring external infrastructure. LDAP groups are mapped to application roles:
-
-| LDAP Group | Application Role |
-|---|---|
-| `GroupA-Users` | `ROLE_MY_APP_USER` |
-| `GroupB-Admins` | `ROLE_MY_APP_ADMIN` |
-| `GroupC-SuperAdmins` | `ROLE_MY_APP_SUPERADMIN` |
-
-Test users: `user1`/`password1`, `user2`/`password2` (Users), `admin1`/`admin123` (Users + Admins), `superadmin1`/`super123` (SuperAdmins).
-
-### Key Features
-
-✅ **Dynamic Role Management**: Roles defined in database, not hardcoded enums  
-✅ **Field-Level Permissions**: Control field access granularly  
-✅ **Permission Scopes**: OWN, DEPARTMENT, and ALL scopes  
-✅ **Immutable & Read-Only Fields**: System-enforced field restrictions  
-✅ **Zero-Code-Redeployment**: Changes take effect immediately via cache reload  
-✅ **Permission Caching**: High-performance with in-memory caching  
-
-### PEM Keys & BouncyCastle
-
-- The authentication subsystem supports RSA private keys provided as PEM files.
-- Supported PEM formats: PKCS#8 (`-----BEGIN PRIVATE KEY-----`) and PKCS#1
-  (`-----BEGIN RSA PRIVATE KEY-----`). The code accepts either format and will
-  convert PKCS#1 to a Java-compatible key at startup.
-- We include the `bcprov-jdk15on` (BouncyCastle) dependency to parse/convert
-  PEM files during application initialization. This avoids requiring offline
-  key conversion during development and makes local testing simpler.
-- If you prefer not to include BouncyCastle, convert keys to PKCS#8 with OpenSSL:
-
-```bash
-openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in examplejwtkey.pem -out examplejwtkey-pk8.pem
-```
-
-Add the resulting PKCS#8 PEM path to `security.jwt.private-key-path` or set
-`JWT_PRIVATE_KEY_PATH` in the environment. In production, use a secure
-keystore or secret manager and avoid storing private keys in `application.yml`.
-
-### Architecture & Flow
-
-```
-┌──────────────┐
-│   Request    │
-└──────┬───────┘
-       │
-       ▼
-┌──────────────────────┐
-│ Authentication Layer │ ← Validate user identity
-│ (LDAP/Active Directory/JWT) │
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────────┐
-│ Authorization Service    │ ← Check object-level access
-│  - Role lookup           │
-│  - Scope checking        │
-│    (OWN/DEPARTMENT/ALL)  │
-└──────────┬───────────────┘
-           │
-           ▼
-┌──────────────────────────┐
-│ Field Permission Filter  │ ← Filter readable/writable fields
-│  - Read permissions      │
-│  - Write permissions     │
-│  - Immutable fields      │
-└──────────┬───────────────┘
-           │
-           ▼
-┌──────────────────┐
-│   Response       │
-└──────────────────┘
-```
-
-### Database Schema
-
-#### Roles Table
-```sql
-CREATE TABLE roles (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    description VARCHAR(500),
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL
-);
-```
-
-#### Permissions Table
-```sql
-CREATE TABLE permissions (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    resource_type VARCHAR(100) NOT NULL,
-    operation VARCHAR(50) NOT NULL,      -- READ, WRITE, DELETE
-    scope VARCHAR(50) NOT NULL,          -- OWN, DEPARTMENT, ALL
-    field_permissions TEXT,              -- JSON: {"field": "READ|WRITE|HIDDEN"}
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL
-);
-```
-
-#### Role_Permissions Table (Junction)
-```sql
-CREATE TABLE role_permissions (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    role_id BIGINT NOT NULL,
-    permission_id BIGINT NOT NULL,
-    created_at TIMESTAMP NOT NULL,
-    FOREIGN KEY (role_id) REFERENCES roles(id),
-    FOREIGN KEY (permission_id) REFERENCES permissions(id)
-);
-```
-
-#### Users Table
-```sql
-CREATE TABLE users (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    username VARCHAR(100) UNIQUE NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    department VARCHAR(100) NOT NULL,
-    role_id BIGINT NOT NULL,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
-    FOREIGN KEY (role_id) REFERENCES roles(id)
-);
-```
-
-### Default Roles
-
-Three default roles are created on application startup:
-
-#### MY_APP_SUPERADMIN
-- **Scope**: ALL
-- **Permissions**: Full access to all fields
-- **Use Case**: System administrators
-
-#### MY_APP_ADMIN
-- **Scope**: DEPARTMENT
-- **Permissions**: 
-  - Can read all fields in their department
-  - Cannot modify: systemUser, department, networkName
-- **Use Case**: Department managers
-
-#### MY_APP_USER
-- **Scope**: OWN
-- **Permissions**:
-  - Can read all fields of their own resources
-  - Cannot modify: systemUser, department, networkName, macAddress, ipAddress
-- **Use Case**: Regular users
-
-### Field Permission Configuration
-
-Field permissions are stored as JSON in the `field_permissions` column:
-
-```json
-{
-  "systemUser": "READ",     // Can read, cannot write
-  "department": "READ",     // Can read, cannot write
-  "networkName": "WRITE",   // Can read and write
-  "id": "HIDDEN"            // Completely hidden from response
-}
-```
-
-**Permission Levels**:
-- `WRITE`: Can read and write
-- `READ`: Can read but not write
-- `HIDDEN`: Completely hidden from response
-
-### Code Organization
+## Code Organization
 
 The codebase is organized **by feature** rather than by technical layer: each business
 capability owns its entity, DTO, mapper, repository, service, and controller in a single
@@ -1905,26 +1470,18 @@ feature/
 │       ├── BatchComputerSystemController.java
 │       └── BatchProperties.java
 └── security/
-    ├── role/            — Role.java, RoleDto.java, RoleMapper.java
-    ├── permission/       — Permission.java, PermissionDto.java, PermissionMapper.java
-    ├── rolepermission/  — RolePermission.java (junction entity)
-    ├── auth/             — AuthController, RoleManagementController/Service, RoleRepository, PermissionRepository, RolePermissionRepository
-    ├── jwt/              — JwtService, JwtProperties, JwksController
-    ├── token/            — ApiToken, ApiTokenRepository, ApiTokenService, TokenController
-    ├── session/          — SessionStore, SessionRepository
-    ├── config/           — SecurityConfig, ActiveDirectoryConfig, ActiveDirectoryProperties
-    ├── db/               — DbUserDetailsService
-    ├── filter/           — JwtAuthenticationFilter
-    └── (RBAC engine)     — RolePermissionService, AuthorizationService, FieldPermissionFilterService,
-                             FieldPermissionsConfig, RoleInitializationService, AuthenticationContext,
-                             CustomUserPrincipal, ApiTokenPrincipal
+    └── config/           — SecurityConfig (minimal permit-all stub; auth pending overhaul)
 ```
+
+> **Note:** Authentication and authorization were removed pending an overhaul (see the
+> `overhaul/auth-features` branch). The `security` package currently holds only a minimal
+> `SecurityConfig` that permits all requests; the API is open. The Spring Security / LDAP /
+> JWT dependencies remain declared in `pom.xml` for the rebuild.
 
 **Pattern**: entities/DTOs may reference across features directly (e.g. `ComputerSystem`
 referencing `User`), but repositories and internal helpers should stay package-private —
 cross-feature access should go through a feature's public service methods, not its
-repository. `security` is treated as a feature in its own right (auth, JWT, RBAC engine),
-consumed by other features rather than depending on them.
+repository.
 
 #### Integration layer (`com.demo.integration`)
 
@@ -1951,406 +1508,17 @@ Renamed from `shared` — genuinely generic, feature-agnostic infrastructure onl
 platform/
 ├── BaseEntity.java                        // id, createdAt, updatedAt auditing
 ├── config/
-│   ├── OpenApiConfig.java, WebConfig.java, MetricsConfiguration.java, JpaConfig.java
-├── exception/
-│   ├── DuplicateResourceException.java, ResourceNotFoundException.java
-│   ├── ErrorResponse.java, GlobalExceptionHandler.java
-└── interceptor/
-    └── GlobalRateLimitInterceptor.java
+│   ├── OpenApiConfig.java, MetricsConfiguration.java, JpaConfig.java
+└── exception/
+    ├── DuplicateResourceException.java, ResourceNotFoundException.java
+    └── ErrorResponse.java, GlobalExceptionHandler.java
 ```
-
-### Admin APIs
-
-All admin endpoints require SUPER_ADMIN role and are prefixed with `/api/v1/admin`.
-
-#### Role Management
-
-```http
-# Create Role
-POST /api/v1/admin/roles
-Content-Type: application/json
-
-{
-  "name": "DEVELOPER",
-  "description": "Developer role with code access"
-}
-
-# Get All Roles
-GET /api/v1/admin/roles
-
-# Get Role by ID
-GET /api/v1/admin/roles/{id}
-
-# Update Role
-PUT /api/v1/admin/roles/{id}
-
-# Delete Role
-DELETE /api/v1/admin/roles/{id}
-```
-
-#### Permission Management
-
-```http
-# Create Permission
-POST /api/v1/admin/permissions
-Content-Type: application/json
-
-{
-  "resourceType": "ComputerSystem",
-  "operation": "READ",
-  "scope": "DEPARTMENT",
-  "fieldPermissions": "{\"systemUser\":\"READ\",\"department\":\"READ\"}"
-}
-
-# Get All Permissions
-GET /api/v1/admin/permissions
-
-# Get Permission by ID
-GET /api/v1/admin/permissions/{id}
-
-# Update Permission
-PUT /api/v1/admin/permissions/{id}
-
-# Delete Permission
-DELETE /api/v1/admin/permissions/{id}
-```
-
-#### Role-Permission Assignment
-
-```http
-# Assign Permission to Role
-POST /api/v1/admin/roles/{roleId}/permissions/{permissionId}
-
-# Revoke Permission from Role
-DELETE /api/v1/admin/roles/{roleId}/permissions/{permissionId}
-
-# Get Permissions for Role
-GET /api/v1/admin/roles/{roleId}/permissions
-```
-
-#### Cache Management
-
-```http
-# Reload Permissions Cache
-POST /api/v1/admin/cache/reload
-
-# Response
-{
-  "message": "Permissions cache reloaded successfully"
-}
-```
-
-**When to Reload Cache**:
-- After creating/updating/deleting roles
-- After creating/updating/deleting permissions
-- After assigning/revoking role permissions
-
-Cache automatically reloads after these operations, but manual reload is available if needed.
-
-### User APIs
-
-User endpoints are available to any authenticated user and are prefixed with `/api/v1/users`. User management is handled by `UserManagementController` and `UserManagementService` in the `com.demo.application.user` package.
-
-```http
-# Create User
-POST /api/v1/users
-Content-Type: application/json
-
-{
-  "username": "john.doe",
-  "email": "john.doe@example.com",
-  "department": "IT",
-  "roleId": 1
-}
-
-# Get All Users
-GET /api/v1/users
-
-# Get User by ID
-GET /api/v1/users/{id}
-
-# Update User
-PUT /api/v1/users/{id}
-
-# Delete User
-DELETE /api/v1/users/{id}
-```
-
-### Step-by-Step: Adding a New Object Type
-
-Example: Adding a "Server" resource type to the RBAC system.
-
-#### Step 1: Define the Entity
-
-```java
-@Entity
-@Table(name = "servers")
-public class Server {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    private String name;
-    private String ipAddress;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by")
-    private User createdBy;
-    
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-    
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-    
-    // Getters, setters, builders...
-}
-```
-
-#### Step 2: Update FieldPermissionsConfig
-
-```java
-private void initializeServerFields() {
-    // Immutable fields
-    immutableFields.put("Server", Set.of("id", "createdAt", "createdBy"));
-    
-    // Read-only fields
-    readOnlyFields.put("Server", Set.of("updatedAt"));
-    
-    // Hidden fields (role-dependent)
-    hiddenFields.put("Server", new HashSet<>());
-}
-```
-
-#### Step 3: Create Permissions via Admin API
-
-```http
-# Create READ permission for ADMIN role
-POST /api/v1/admin/permissions
-{
-  "resourceType": "Server",
-  "operation": "READ",
-  "scope": "DEPARTMENT",
-  "fieldPermissions": "{}"
-}
-
-# Create WRITE permission for ADMIN role
-POST /api/v1/admin/permissions
-{
-  "resourceType": "Server",
-  "operation": "WRITE",
-  "scope": "DEPARTMENT",
-  "fieldPermissions": "{\"ipAddress\":\"READ\"}"
-}
-```
-
-#### Step 4: Assign Permissions to Roles
-
-```http
-# Get ADMIN role ID (assume it's 2)
-GET /api/v1/admin/roles
-
-# Assign READ permission (assume permission ID is 10)
-POST /api/v1/admin/roles/2/permissions/10
-
-# Assign WRITE permission (assume permission ID is 11)
-POST /api/v1/admin/roles/2/permissions/11
-```
-
-#### Step 5: Reload Cache
-
-```http
-POST /api/v1/admin/cache/reload
-```
-
-### Step-by-Step: Adding a New Field to Existing Object
-
-Example: Adding a "location" field to ComputerSystem.
-
-#### Step 1: Update Entity
-
-```java
-@Entity
-@Table(name = "computer_systems")
-public class ComputerSystem {
-    // ... existing fields ...
-    
-    @Column(length = 255)
-    private String location;
-    
-    // Getter and setter
-    public String getLocation() {
-        return location;
-    }
-    
-    public void setLocation(String location) {
-        this.location = location;
-    }
-}
-```
-
-#### Step 2: Update DTO
-
-```java
-@Schema(description = "Computer System Data Transfer Object")
-public class ComputerSystemDto {
-    // ... existing fields ...
-    
-    @Schema(description = "Physical location", example = "Building A, Floor 3")
-    private String location;
-    
-    // Getter and setter
-}
-```
-
-#### Step 3: Decide Field Permissions
-
-For each role, decide if the field should be:
-- `WRITE` (default - can read and write)
-- `READ` (read-only for this role)
-- `HIDDEN` (completely hidden)
-
-#### Step 4: Update Permissions via Admin API
-
-```http
-# Update ADMIN role's WRITE permission for ComputerSystem
-PUT /api/v1/admin/permissions/{permissionId}
-{
-  "resourceType": "ComputerSystem",
-  "operation": "WRITE",
-  "scope": "DEPARTMENT",
-  "fieldPermissions": "{\"systemUser\":\"READ\",\"department\":\"READ\",\"networkName\":\"READ\",\"location\":\"WRITE\"}"
-}
-```
-
-#### Step 5: Reload Cache
-
-```http
-POST /api/v1/admin/cache/reload
-```
-
-### Security Best Practices
-
-1. **Principle of Least Privilege**: Grant minimum permissions required
-2. **Regular Permission Audits**: Review role permissions quarterly
-3. **Field-Level Security**: Always define field permissions explicitly
-4. **Cache Management**: Reload cache after permission changes
-5. **Audit Logging**: Log all permission changes (future enhancement)
-6. **Authentication**: Integrate with Active Directory or JWT in production; use embedded LDAP for testing
-7. **API Protection**: Restrict admin endpoints to trusted networks
-8. **Database Backups**: Regular backups of roles/permissions tables
-9. **Testing**: Test permission changes in staging before production
-
-### Testing Scenarios
-
-#### Test 1: User Can Only Access Own Resources
-
-```http
-# As USER role
-GET /api/v1/computer-systems
-
-# Expected: Only sees ComputerSystems where createdBy = current user
-```
-
-#### Test 2: Admin Can Access Department Resources
-
-```http
-# As ADMIN role in IT department
-GET /api/v1/computer-systems
-
-# Expected: Sees all ComputerSystems in IT department
-```
-
-#### Test 3: Field-Level Restrictions
-
-```http
-# As USER role
-PUT /api/v1/computer-systems/1
-{
-  "hostname": "NEW-NAME",
-  "department": "HR"   // Should be rejected
-}
-
-# Expected: 403 Forbidden - Cannot modify 'department' field
-```
-
-#### Test 4: Super Admin Has Full Access
-
-```http
-# As SUPER_ADMIN role
-PUT /api/v1/computer-systems/1
-{
-  "hostname": "NEW-NAME",
-  "department": "HR"   // Should succeed
-}
-
-# Expected: 200 OK - All fields modifiable
-```
-
-### Troubleshooting Guide
-
-#### Problem: Permission changes not taking effect
-
-**Solution**: Reload the permissions cache:
-```http
-POST /api/v1/admin/cache/reload
-```
-
-#### Problem: User cannot access their own resources
-
-**Checklist**:
-1. Verify user has a role assigned
-2. Check role has READ permission with scope OWN or higher
-3. Verify createdBy field is set correctly on resources
-4. Reload cache if permissions were recently changed
-
-#### Problem: Field appears in response but shouldn't
-
-**Checklist**:
-1. Check field permissions JSON for the role's permission
-2. Verify field is marked as HIDDEN (not READ)
-3. Reload cache
-4. Check FieldPermissionsConfig doesn't override setting
-
-#### Problem: Cannot create/update role
-
-**Possible Causes**:
-1. Role name already exists (must be unique)
-2. Missing required fields (name)
-
-#### Problem: Slow permission checks
-
-**Solutions**:
-1. Verify cache is working (check logs for cache hits)
-2. Consider increasing JVM heap size for larger permission sets
-3. Review database indexes on role/permission tables
-
-### Performance Considerations
-
-- **Permission Cache**: In-memory cache avoids database queries
-- **Lazy Loading**: User relationships loaded only when needed
-- **Database Indexes**: Indexed on role names, user usernames
-- **Field Filtering**: Happens in-memory after database fetch
-- **Connection Pooling**: HikariCP connection pool (default in Spring Boot)
-
-### Future Enhancements
-
-- Integrate with Spring Security for authentication
-- Add Active Directory integration
-- Implement JWT token-based authentication
-- Add audit logging for all permission checks
-- Add UI for role/permission management
-- Support for custom permission validators
-- Implement time-based permissions (scheduled access)
 
 ## Ideas for future Enhancements
 
-- ~~Add authentication and authorization (JWT)~~ ✅ **IMPLEMENTED: RBAC system with field-level permissions**
-- Implement per-client rate limiting (API keys/authentication)
-- Implement distributed rate limiting with Redis
+- Rebuild authentication and authorization (overhaul in progress on `overhaul/auth-features`)
 - Add caching layer (Redis) for frequently accessed data
 - Implement audit logging for all operations
-- ~~Integrate Spring Security with Active Directory/JWT authentication~~ ✅ **IMPLEMENTED: Active Directory + JWT auth**
 - Implement soft deletes for data recovery
 - Create analytics and reporting endpoints
 - Add request/response encryption for sensitive data

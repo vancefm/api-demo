@@ -1,101 +1,28 @@
 package com.demo.feature.security.config;
 
-import com.demo.feature.security.db.DbUserDetailsService;
-import com.demo.feature.security.filter.JwtAuthenticationFilter;
-import com.demo.feature.security.jwt.JwtService;
-import com.demo.feature.security.token.ApiTokenRepository;
-import com.demo.feature.user.UserRepository;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.authentication.ProviderManager;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.ldap.authentication.ad.ActiveDirectoryLdapAuthenticationProvider;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
-import java.util.ArrayList;
-import java.util.List;
-
+/**
+ * Minimal security configuration.
+ *
+ * <p>Authentication and authorization were removed pending an overhaul; every
+ * request is currently permitted. {@code @EnableWebSecurity} is kept so Spring
+ * Boot does not fall back to its default auto-configured login (which would
+ * generate a password and secure all endpoints).
+ */
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity
 public class SecurityConfig {
 
-    private final JwtService jwtService;
-    private final DbUserDetailsService dbUserDetailsService;
-    private final ObjectProvider<ActiveDirectoryLdapAuthenticationProvider> activeDirectoryAuthenticationProvider;
-
-    public SecurityConfig(JwtService jwtService,
-                          DbUserDetailsService dbUserDetailsService,
-                          ObjectProvider<ActiveDirectoryLdapAuthenticationProvider> activeDirectoryAuthenticationProvider) {
-        this.jwtService = jwtService;
-        this.dbUserDetailsService = dbUserDetailsService;
-        this.activeDirectoryAuthenticationProvider = activeDirectoryAuthenticationProvider;
-    }
-
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        // BCrypt with default strength (10 rounds); suitable for DB-stored credentials.
-        return new BCryptPasswordEncoder();
-    }
-
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                   PasswordEncoder passwordEncoder,
-                                                   JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(auth -> auth
-                // Public endpoints: auth + JWKS for JWT verification + docs/health
-                .requestMatchers("/api/v1/auth/**", "/.well-known/jwks.json", "/swagger-ui.html", "/v3/api-docs/**", "/actuator/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/computer-systems").hasRole("MY_APP_USER")
-                .requestMatchers("/api/v1/admin/**").hasRole("MY_APP_SUPERADMIN")
-                .anyRequest().authenticated()
-            )
-            .httpBasic(Customizer.withDefaults());
-        // JWT filter: validates incoming Bearer tokens and sets SecurityContext
-        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-
+            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
         return http.build();
-    }
-
-    /**
-     * Builds the JWT authentication filter that validates Bearer tokens and
-     * establishes the Spring Security context for authenticated requests.
-     */
-    @Bean
-    public JwtAuthenticationFilter jwtAuthenticationFilter(PasswordEncoder passwordEncoder,
-                                                           ApiTokenRepository apiTokenRepository,
-                                                           UserRepository userRepository) {
-        return new JwtAuthenticationFilter(jwtService, apiTokenRepository, userRepository, passwordEncoder);
-    }
-
-    @Bean
-    public AuthenticationManager authenticationManager(PasswordEncoder passwordEncoder) {
-        DaoAuthenticationProvider daoProvider = new DaoAuthenticationProvider(dbUserDetailsService);
-        daoProvider.setPasswordEncoder(passwordEncoder);
-
-        // Provider order: Active Directory first (when enabled), then DB/DAO fallback.
-        // The AD provider bean is conditionally present; it is only included when
-        // security.active-directory.enabled=true is set in configuration.
-        List<AuthenticationProvider> providers = new ArrayList<>();
-
-        ActiveDirectoryLdapAuthenticationProvider adProvider = activeDirectoryAuthenticationProvider.getIfAvailable();
-        if (adProvider != null) {
-            providers.add(adProvider);
-        }
-
-        providers.add(daoProvider);
-        return new ProviderManager(providers);
     }
 }

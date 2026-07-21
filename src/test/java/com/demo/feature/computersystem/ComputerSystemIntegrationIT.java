@@ -1,9 +1,6 @@
 package com.demo.feature.computersystem;
 
-import com.demo.feature.security.auth.RoleRepository;
 import com.demo.feature.user.UserRepository;
-import com.demo.feature.computersystem.ComputerSystemDto;
-import com.demo.feature.security.role.Role;
 import com.demo.feature.user.User;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,7 +21,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-@WithMockUser(roles = "MY_APP_USER")
 class ComputerSystemIntegrationIT {
 
     @Autowired
@@ -37,27 +32,17 @@ class ComputerSystemIntegrationIT {
     @Autowired
     private UserRepository userRepository;
 
-    @Autowired
-    private RoleRepository roleRepository;
-
     private ComputerSystemDto testDto;
     private User johnDoe;
     private User janeDoe;
 
     @BeforeEach
     void setUp() {
-        Role role = roleRepository.findByName("MY_APP_USER")
-                .orElseGet(() -> roleRepository.save(Role.builder()
-                        .name("MY_APP_USER")
-                        .description("Test role")
-                        .build()));
-
         johnDoe = userRepository.findByUsername("john.doe")
                 .orElseGet(() -> userRepository.save(User.builder()
                         .username("john.doe")
                         .email("john.doe@example.com")
                         .department("IT")
-                        .role(role)
                         .build()));
 
         janeDoe = userRepository.findByUsername("jane.doe")
@@ -65,7 +50,6 @@ class ComputerSystemIntegrationIT {
                         .username("jane.doe")
                         .email("jane.doe@example.com")
                         .department("IT")
-                        .role(role)
                         .build()));
 
         testDto = ComputerSystemDto.builder()

@@ -1,7 +1,6 @@
 package com.demo.feature.user;
 
 import com.demo.platform.BaseEntity;
-import com.demo.feature.security.role.Role;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -34,10 +33,6 @@ public class User extends BaseEntity {
 
     @Column(nullable = true, length = 255)
     private String passwordHash;
-
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "role_id", nullable = false)
-    private Role role;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

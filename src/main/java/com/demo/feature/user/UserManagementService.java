@@ -1,10 +1,5 @@
 package com.demo.feature.user;
 
-import com.demo.feature.security.auth.RoleManagementService;
-import com.demo.feature.security.role.Role;
-import com.demo.feature.user.User;
-import com.demo.feature.user.UserDto;
-import com.demo.feature.user.UserMapper;
 import com.demo.platform.exception.DuplicateResourceException;
 import com.demo.platform.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +20,6 @@ import java.util.stream.Collectors;
 public class UserManagementService {
 
     private final UserRepository userRepository;
-    private final RoleManagementService roleManagementService;
     private final UserMapper userMapper;
 
     public UserDto createUser(UserDto dto) {
@@ -37,10 +31,7 @@ public class UserManagementService {
             throw new DuplicateResourceException("User with email '" + dto.getEmail() + "' already exists");
         }
 
-        Role role = roleManagementService.resolveRole(dto.getRoleId());
-
         User user = userMapper.toEntity(dto);
-        user.setRole(role);
 
         if (dto.getManagerId() != null) {
             User manager = userRepository.findById(dto.getManagerId())
@@ -80,10 +71,7 @@ public class UserManagementService {
             throw new DuplicateResourceException("User with email '" + dto.getEmail() + "' already exists");
         }
 
-        Role role = roleManagementService.resolveRole(dto.getRoleId());
-
         userMapper.updateEntityFromDto(dto, user);
-        user.setRole(role);
 
         if (dto.getManagerId() != null) {
             User manager = userRepository.findById(dto.getManagerId())
