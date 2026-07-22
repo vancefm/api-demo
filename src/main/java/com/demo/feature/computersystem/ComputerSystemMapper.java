@@ -1,29 +1,62 @@
 package com.demo.feature.computersystem;
 
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
+import org.springframework.stereotype.Component;
 
 /**
- * MapStruct mapper for converting between ComputerSystem entity and ComputerSystemDto.
+ * Maps between {@link ComputerSystem} entities and {@link ComputerSystemDto}.
+ *
+ * Note: The systemUser and createdBy relationships require a database lookup,
+ * so toEntity and updateEntityFromDto do not set them. The service layer is
+ * responsible for resolving and setting those entities.
  */
-@Mapper(componentModel = "spring")
-public interface ComputerSystemMapper {
+@Component
+public class ComputerSystemMapper {
 
-    @Mapping(source = "systemUser.id", target = "userId")
-    ComputerSystemDto toDto(ComputerSystem entity);
+    public ComputerSystemDto toDto(ComputerSystem entity) {
+        if (entity == null) {
+            return null;
+        }
 
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "systemUser", ignore = true)
-    @Mapping(target = "createdBy", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "updatedAt", ignore = true)
-    ComputerSystem toEntity(ComputerSystemDto dto);
+        return ComputerSystemDto.builder()
+            .id(entity.getId())
+            .hostname(entity.getHostname())
+            .manufacturer(entity.getManufacturer())
+            .model(entity.getModel())
+            .userId(entity.getSystemUser() != null ? entity.getSystemUser().getId() : null)
+            .department(entity.getDepartment())
+            .macAddress(entity.getMacAddress())
+            .ipAddress(entity.getIpAddress())
+            .networkName(entity.getNetworkName())
+            .build();
+    }
 
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "systemUser", ignore = true)
-    @Mapping(target = "createdBy", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "updatedAt", ignore = true)
-    void updateEntityFromDto(ComputerSystemDto dto, @MappingTarget ComputerSystem entity);
+    public ComputerSystem toEntity(ComputerSystemDto dto) {
+        if (dto == null) {
+            return null;
+        }
+
+        return ComputerSystem.builder()
+            .hostname(dto.getHostname())
+            .manufacturer(dto.getManufacturer())
+            .model(dto.getModel())
+            .department(dto.getDepartment())
+            .macAddress(dto.getMacAddress())
+            .ipAddress(dto.getIpAddress())
+            .networkName(dto.getNetworkName())
+            .build();
+    }
+
+    public void updateEntityFromDto(ComputerSystemDto dto, ComputerSystem entity) {
+        if (dto == null) {
+            return;
+        }
+
+        entity.setHostname(dto.getHostname());
+        entity.setManufacturer(dto.getManufacturer());
+        entity.setModel(dto.getModel());
+        entity.setDepartment(dto.getDepartment());
+        entity.setMacAddress(dto.getMacAddress());
+        entity.setIpAddress(dto.getIpAddress());
+        entity.setNetworkName(dto.getNetworkName());
+    }
 }

@@ -1,30 +1,51 @@
 package com.demo.feature.user;
 
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
+import org.springframework.stereotype.Component;
 
 /**
- * MapStruct mapper for converting between User entity and UserDto.
+ * Maps between {@link User} entities and {@link UserDto}.
  *
  * Note: The manager relationship requires a database lookup, so toEntity and
- * updateEntityFromDto ignore the manager field. The service layer is
+ * updateEntityFromDto do not set the manager field. The service layer is
  * responsible for resolving and setting the manager entity.
  */
-@Mapper(componentModel = "spring")
-public interface UserMapper {
+@Component
+public class UserMapper {
 
-    @Mapping(source = "manager.id", target = "managerId")
-    UserDto toDto(User entity);
+    public UserDto toDto(User entity) {
+        if (entity == null) {
+            return null;
+        }
 
-    @Mapping(target = "manager", ignore = true)
-    @Mapping(target = "passwordHash", ignore = true)
-    User toEntity(UserDto dto);
+        UserDto dto = new UserDto();
+        dto.setId(entity.getId());
+        dto.setUsername(entity.getUsername());
+        dto.setEmail(entity.getEmail());
+        dto.setDepartment(entity.getDepartment());
+        dto.setManagerId(entity.getManager() != null ? entity.getManager().getId() : null);
+        return dto;
+    }
 
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "manager", ignore = true)
-    @Mapping(target = "passwordHash", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "updatedAt", ignore = true)
-    void updateEntityFromDto(UserDto dto, @MappingTarget User entity);
+    public User toEntity(UserDto dto) {
+        if (dto == null) {
+            return null;
+        }
+
+        return User.builder()
+            .id(dto.getId())
+            .username(dto.getUsername())
+            .email(dto.getEmail())
+            .department(dto.getDepartment())
+            .build();
+    }
+
+    public void updateEntityFromDto(UserDto dto, User entity) {
+        if (dto == null) {
+            return;
+        }
+
+        entity.setUsername(dto.getUsername());
+        entity.setEmail(dto.getEmail());
+        entity.setDepartment(dto.getDepartment());
+    }
 }

@@ -42,9 +42,8 @@ class ComputerSystemServiceTest {
     private User testUser;
 
     @BeforeEach
-    void setUp() throws Exception {
-        Class<?> implClass = Class.forName(ComputerSystemMapper.class.getName() + "Impl");
-        mapper = (ComputerSystemMapper) implClass.getDeclaredConstructor().newInstance();
+    void setUp() {
+        mapper = new ComputerSystemMapper();
         service = new ComputerSystemService(repository, userRepository, mapper);
 
         testUser = User.builder()
