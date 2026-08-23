@@ -231,10 +231,22 @@ The application will start on `http://localhost:8080`
 - **manufacturer**: Computer manufacturer (required)
 - **model**: Computer model (required)
 - **user**: Computer user (required)
-- **department**: Department (required)
+- **departmentIds**: IDs of owning departments (optional, zero or more — shared ownership)
+- **departments**: Owning departments as full objects (populated on read)
 - **macAddress**: MAC address (unique, required, validated)
 - **ipAddress**: IP address (unique, required, validated)
 - **networkName**: Network name (required)
+
+### Department Entity Fields
+
+- **id**: Unique identifier (auto-generated)
+- **name**: Department name (unique, required)
+- **description**: Department description (optional)
+
+Users and computer systems reference departments many-to-many: each may belong to
+zero, one, or many departments (shared ownership). Requests reference departments
+by ID via `departmentIds`; responses include both `departmentIds` and the full
+nested `departments` objects.
 
 ### API Endpoints
 
@@ -248,7 +260,7 @@ Content-Type: application/json
   "manufacturer": "Dell",
   "model": "PowerEdge R750",
   "user": "john.doe",
-  "department": "IT",
+  "departmentIds": [1],
   "macAddress": "00:1A:2B:3C:4D:5E",
   "ipAddress": "192.168.1.100",
   "networkName": "PROD-NETWORK"
@@ -272,7 +284,7 @@ GET /api/v1/computer-systems/hostname/{hostname}
 
 ### Filter Computer Systems
 ```
-GET /api/v1/computer-systems/filter?hostname=SERVER&department=IT&user=john&page=0&size=20&sort=id,desc
+GET /api/v1/computer-systems/filter?hostname=SERVER&departmentId=1&user=john&page=0&size=20&sort=id,desc
 ```
 
 ### Update Computer System
@@ -285,7 +297,7 @@ Content-Type: application/json
   "manufacturer": "HP",
   "model": "ProLiant DL380",
   "user": "jane.doe",
-  "department": "HR",
+  "departmentIds": [2],
   "macAddress": "00:1A:2B:3C:4D:5F",
   "ipAddress": "192.168.1.101",
   "networkName": "PROD-NETWORK"
@@ -295,6 +307,67 @@ Content-Type: application/json
 ### Delete Computer System
 ```
 DELETE /api/v1/computer-systems/{id}
+```
+
+## Departments API
+
+Full CRUD for departments at `/api/v1/departments`.
+
+### Create Department
+```
+POST /api/v1/departments
+Content-Type: application/json
+
+{
+  "name": "IT",
+  "description": "Information Technology"
+}
+```
+
+### Get All Departments (with pagination)
+```
+GET /api/v1/departments?page=0&size=20&sort=name,asc
+```
+
+### Get Department by ID
+```
+GET /api/v1/departments/{id}
+```
+
+### Update Department
+```
+PUT /api/v1/departments/{id}
+Content-Type: application/json
+
+{
+  "name": "IT",
+  "description": "Information Technology and Operations"
+}
+```
+
+### Delete Department
+```
+DELETE /api/v1/departments/{id}
+```
+
+> **Note:** Deleting a department is never blocked by existing assignments — any
+> users or computer systems that reference it are **silently dissociated** (their
+> `departmentIds`/`departments` simply shrink). There is no orphan check.
+
+Department fields on users and computer systems:
+- Requests (create/update) send `"departmentIds": [1, 3]` referencing existing
+  departments; unknown IDs fail the request with 404. Omitting `departmentIds`
+  (or sending an empty list) on an update clears all department assignments.
+- Responses include both `departmentIds` and nested `departments` objects, e.g.:
+```json
+{
+  "id": 42,
+  "hostname": "SERVER-001",
+  "departmentIds": [1],
+  "departments": [
+    {"id": 1, "name": "IT", "description": "Information Technology"}
+  ]
+}
 ```
 
 ## Query Features
@@ -315,12 +388,12 @@ GET /api/v1/computer-systems?page=1&size=10&sort=hostname,asc
 
 Filter endpoints support the following query parameters:
 - `hostname`: Partial match (case-insensitive)
-- `department`: Exact match
+- `departmentId`: Exact match (department membership)
 - `user`: Partial match (case-insensitive)
 
 Example:
 ```
-GET /api/v1/computer-systems/filter?hostname=SERVER&department=IT&user=john
+GET /api/v1/computer-systems/filter?hostname=SERVER&departmentId=1&user=john
 ```
 
 ## Data Validation
@@ -331,7 +404,7 @@ GET /api/v1/computer-systems/filter?hostname=SERVER&department=IT&user=john
 - **manufacturer**: Required
 - **model**: Required
 - **user**: Required
-- **department**: Required
+- **departmentIds**: Optional (zero or more); every ID must reference an existing department
 - **macAddress**: Required, must match pattern `XX:XX:XX:XX:XX:XX`
 - **ipAddress**: Required, must be valid IPv4 format
 - **networkName**: Required
@@ -813,7 +886,7 @@ Content-Type: application/json
       "manufacturer": "Dell",
       "model": "PowerEdge R750",
       "user": "john.doe",
-      "department": "IT",
+      "departmentIds": [1],
       "macAddress": "00:1A:2B:3C:4D:5E",
       "ipAddress": "192.168.1.100",
       "networkName": "PROD-NETWORK"
@@ -823,7 +896,7 @@ Content-Type: application/json
       "manufacturer": "Dell",
       "model": "PowerEdge R750",
       "user": "jane.smith",
-      "department": "IT",
+      "departmentIds": [1],
       "macAddress": "00:1A:2B:3C:4D:5F",
       "ipAddress": "192.168.1.101",
       "networkName": "PROD-NETWORK"
@@ -842,7 +915,8 @@ Content-Type: application/json
       "manufacturer": "Dell",
       "model": "PowerEdge R750",
       "user": "john.doe",
-      "department": "IT",
+      "departmentIds": [1],
+      "departments": [{"id": 1, "name": "IT", "description": "Information Technology"}],
       "macAddress": "00:1A:2B:3C:4D:5E",
       "ipAddress": "192.168.1.100",
       "networkName": "PROD-NETWORK"
@@ -853,7 +927,8 @@ Content-Type: application/json
       "manufacturer": "Dell",
       "model": "PowerEdge R750",
       "user": "jane.smith",
-      "department": "IT",
+      "departmentIds": [1],
+      "departments": [{"id": 1, "name": "IT", "description": "Information Technology"}],
       "macAddress": "00:1A:2B:3C:4D:5F",
       "ipAddress": "192.168.1.101",
       "networkName": "PROD-NETWORK"
@@ -900,7 +975,7 @@ Content-Type: application/json
       "manufacturer": "Dell",
       "model": "PowerEdge R750",
       "user": "john.doe",
-      "department": "DevOps",  # Updated
+      "departmentIds": [3],  # Reassigned to the DevOps department
       ...
     },
     {
@@ -909,7 +984,7 @@ Content-Type: application/json
       "manufacturer": "Dell",
       "model": "PowerEdge R750",
       "user": "jane.smith",
-      "department": "DevOps",  # Updated
+      "departmentIds": [3],  # Reassigned to the DevOps department
       ...
     }
   ]
@@ -920,7 +995,7 @@ Content-Type: application/json
 All items updated successfully, or HTTP 404 if any item not found (none updated).
 
 **Use Cases:**
-- **Bulk Configuration**: Update 50 servers to new department
+- **Bulk Configuration**: Reassign 50 servers to a new department via `departmentIds`
 - **Bulk Rename**: Update hostnames for multiple systems
 - **Bulk Reconfig**: Update network settings across systems
 
@@ -1461,6 +1536,9 @@ feature/
 ├── user/
 │   ├── User.java, UserDto.java, UserMapper.java
 │   └── UserRepository.java, UserManagementService.java, UserManagementController.java
+├── department/
+│   ├── Department.java, DepartmentDto.java, DepartmentMapper.java
+│   └── DepartmentRepository.java, DepartmentService.java, DepartmentController.java
 ├── computersystem/
 │   ├── ComputerSystem.java, ComputerSystemDto.java, ComputerSystemMapper.java
 │   ├── ComputerSystemRepository.java, ComputerSystemService.java, ComputerSystemController.java

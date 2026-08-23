@@ -32,7 +32,6 @@ class ComputerSystemRepositoryIT {
         testUser = userRepository.save(User.builder()
             .username("admin")
             .email("admin@example.com")
-            .department("IT")
             .build());
 
         testSystem = ComputerSystem.builder()
@@ -42,7 +41,6 @@ class ComputerSystemRepositoryIT {
             .manufacturer("Dell")
             .model("PowerEdge R750")
             .systemUser(testUser)
-            .department("IT")
             .networkName("VLAN-001")
             .build();
     }
@@ -112,7 +110,6 @@ class ComputerSystemRepositoryIT {
             .manufacturer("Dell")
             .model("PowerEdge R750")
             .systemUser(testUser)
-            .department("IT")
             .networkName("VLAN-001")
             .build();
         

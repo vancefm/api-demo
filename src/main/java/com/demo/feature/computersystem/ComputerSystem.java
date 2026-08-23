@@ -1,13 +1,18 @@
 package com.demo.feature.computersystem;
 
 import com.demo.platform.BaseEntity;
+import com.demo.feature.department.Department;
 import com.demo.feature.user.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "computer_systems")
@@ -31,8 +36,13 @@ public class ComputerSystem extends BaseEntity {
     @JoinColumn(name = "assigned_user_id", nullable = false)
     private User systemUser;
 
-    @Column(nullable = false)
-    private String department;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "computer_system_departments",
+        joinColumns = @JoinColumn(name = "computer_system_id"),
+        inverseJoinColumns = @JoinColumn(name = "department_id"))
+    @Builder.Default
+    private Set<Department> departments = new HashSet<>();
 
     @Column(nullable = false, unique = true)
     private String macAddress;

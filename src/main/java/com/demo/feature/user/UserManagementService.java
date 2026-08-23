@@ -1,5 +1,6 @@
 package com.demo.feature.user;
 
+import com.demo.feature.department.DepartmentService;
 import com.demo.platform.exception.DuplicateResourceException;
 import com.demo.platform.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class UserManagementService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final DepartmentService departmentService;
 
     public UserDto createUser(UserDto dto) {
         if (userRepository.existsByUsername(dto.getUsername())) {
@@ -32,6 +34,7 @@ public class UserManagementService {
         }
 
         User user = userMapper.toEntity(dto);
+        user.setDepartments(departmentService.resolveDepartments(dto.getDepartmentIds()));
 
         if (dto.getManagerId() != null) {
             User manager = userRepository.findById(dto.getManagerId())
@@ -72,6 +75,7 @@ public class UserManagementService {
         }
 
         userMapper.updateEntityFromDto(dto, user);
+        user.setDepartments(departmentService.resolveDepartments(dto.getDepartmentIds()));
 
         if (dto.getManagerId() != null) {
             User manager = userRepository.findById(dto.getManagerId())

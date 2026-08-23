@@ -2,6 +2,7 @@ package com.demo.feature.computersystem;
 
 import com.demo.feature.computersystem.ComputerSystemDto;
 import com.demo.feature.computersystem.ComputerSystemMapper;
+import com.demo.feature.department.DepartmentService;
 import com.demo.feature.user.User;
 import com.demo.feature.user.UserRepository;
 import com.demo.platform.exception.DuplicateResourceException;
@@ -41,6 +42,7 @@ public class ComputerSystemService {
     private static final String NOT_FOUND = " not found";
     private final ComputerSystemRepository repository;
     private final UserRepository userRepository;
+    private final DepartmentService departmentService;
     private final ComputerSystemMapper mapper;
 
     /**
@@ -71,6 +73,7 @@ public class ComputerSystemService {
         User assignedUser = userRepository.findById(dto.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User with id " + dto.getUserId() + NOT_FOUND));
         computerSystem.setSystemUser(assignedUser);
+        computerSystem.setDepartments(departmentService.resolveDepartments(dto.getDepartmentIds()));
         ComputerSystem savedSystem = repository.save(computerSystem);
 
         return mapper.toDto(savedSystem);
@@ -135,10 +138,10 @@ public class ComputerSystemService {
     }
 
     /**
-     * Filters computer systems by hostname, department, or user ID with circuit breaker protection.
+     * Filters computer systems by hostname, department ID, or user ID with circuit breaker protection.
      *
      * @param hostname Hostname to filter by
-     * @param department Department to filter by
+     * @param departmentId Department ID to filter by (membership in the department)
      * @param userId User ID to filter by
      * @param pageable Pagination parameters
      * @return Filtered page of computer systems
@@ -147,10 +150,10 @@ public class ComputerSystemService {
     @CircuitBreaker(name = "databaseQuery", fallbackMethod = "filterComputerSystemsFallback")
     public Page<ComputerSystemDto> filterComputerSystems(
             String hostname,
-            String department,
+            Long departmentId,
             Long userId,
             Pageable pageable) {
-        return repository.findByFilters(hostname, department, userId, pageable).map(mapper::toDto);
+        return repository.findByFilters(hostname, departmentId, userId, pageable).map(mapper::toDto);
     }
 
     /**
@@ -159,7 +162,7 @@ public class ComputerSystemService {
      */
     public Page<ComputerSystemDto> filterComputerSystemsFallback(
             String hostname,
-            String department,
+            Long departmentId,
             Long userId,
             Pageable pageable,
             CallNotPermittedException ex) {
@@ -200,6 +203,7 @@ public class ComputerSystemService {
         User assignedUser = userRepository.findById(dto.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User with id " + dto.getUserId() + NOT_FOUND));
         computerSystem.setSystemUser(assignedUser);
+        computerSystem.setDepartments(departmentService.resolveDepartments(dto.getDepartmentIds()));
 
         ComputerSystem updatedSystem = repository.save(computerSystem);
 

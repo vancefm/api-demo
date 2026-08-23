@@ -1,16 +1,25 @@
 package com.demo.feature.user;
 
+import com.demo.feature.department.Department;
+import com.demo.feature.department.DepartmentDto;
+import com.demo.feature.department.DepartmentMapper;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+
+import java.util.Comparator;
 
 /**
  * Maps between {@link User} entities and {@link UserDto}.
  *
- * Note: The manager relationship requires a database lookup, so toEntity and
- * updateEntityFromDto do not set the manager field. The service layer is
- * responsible for resolving and setting the manager entity.
+ * Note: The manager and department relationships require database lookups, so
+ * toEntity and updateEntityFromDto do not set them. The service layer is
+ * responsible for resolving and setting those entities.
  */
 @Component
+@RequiredArgsConstructor
 public class UserMapper {
+
+    private final DepartmentMapper departmentMapper;
 
     public UserDto toDto(User entity) {
         if (entity == null) {
@@ -21,8 +30,18 @@ public class UserMapper {
         dto.setId(entity.getId());
         dto.setUsername(entity.getUsername());
         dto.setEmail(entity.getEmail());
-        dto.setDepartment(entity.getDepartment());
         dto.setManagerId(entity.getManager() != null ? entity.getManager().getId() : null);
+        // Sorted by id for deterministic JSON output — Set iteration order is undefined.
+        dto.setDepartments(entity.getDepartments().stream()
+            .map(departmentMapper::toDto)
+            .sorted(Comparator.comparing(DepartmentDto::getId))
+            .toList());
+        // Also populated on read so a fetched DTO can be sent back as a PUT body
+        // without losing its department associations.
+        dto.setDepartmentIds(entity.getDepartments().stream()
+            .map(Department::getId)
+            .sorted()
+            .toList());
         return dto;
     }
 
@@ -35,7 +54,6 @@ public class UserMapper {
             .id(dto.getId())
             .username(dto.getUsername())
             .email(dto.getEmail())
-            .department(dto.getDepartment())
             .build();
     }
 
@@ -46,6 +64,5 @@ public class UserMapper {
 
         entity.setUsername(dto.getUsername());
         entity.setEmail(dto.getEmail());
-        entity.setDepartment(dto.getDepartment());
     }
 }

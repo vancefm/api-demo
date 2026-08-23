@@ -1,5 +1,7 @@
 package com.demo.feature.computersystem;
 
+import com.demo.feature.department.Department;
+import com.demo.feature.department.DepartmentRepository;
 import com.demo.feature.user.UserRepository;
 import com.demo.feature.user.User;
 import tools.jackson.databind.ObjectMapper;
@@ -12,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Objects;
 
 import static org.hamcrest.Matchers.*;
@@ -32,24 +35,32 @@ class ComputerSystemIntegrationIT {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private DepartmentRepository departmentRepository;
+
     private ComputerSystemDto testDto;
     private User johnDoe;
     private User janeDoe;
+    private Department itDepartment;
 
     @BeforeEach
     void setUp() {
+        itDepartment = departmentRepository.findByName("IT")
+                .orElseGet(() -> departmentRepository.save(Department.builder()
+                        .name("IT")
+                        .description("Information Technology")
+                        .build()));
+
         johnDoe = userRepository.findByUsername("john.doe")
                 .orElseGet(() -> userRepository.save(User.builder()
                         .username("john.doe")
                         .email("john.doe@example.com")
-                        .department("IT")
                         .build()));
 
         janeDoe = userRepository.findByUsername("jane.doe")
                 .orElseGet(() -> userRepository.save(User.builder()
                         .username("jane.doe")
                         .email("jane.doe@example.com")
-                        .department("IT")
                         .build()));
 
         testDto = ComputerSystemDto.builder()
@@ -57,7 +68,7 @@ class ComputerSystemIntegrationIT {
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
                 .userId(johnDoe.getId())
-                .department("IT")
+                .departmentIds(List.of(itDepartment.getId()))
                 .macAddress("00:1A:2B:3C:4D:5E")
                 .ipAddress("192.168.1.100")
                 .networkName("PROD-NETWORK")
@@ -78,7 +89,8 @@ class ComputerSystemIntegrationIT {
         mockMvc.perform(get("/api/v1/computer-systems/hostname/SERVER-001"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.hostname", is("SERVER-001")))
-                .andExpect(jsonPath("$.department", is("IT")));
+                .andExpect(jsonPath("$.departments[0].name", is("IT")))
+                .andExpect(jsonPath("$.departmentIds[0]", is(itDepartment.getId().intValue())));
     }
 
     @Test
@@ -90,7 +102,7 @@ class ComputerSystemIntegrationIT {
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
                 .userId(johnDoe.getId())
-                .department("IT")
+                .departmentIds(List.of(itDepartment.getId()))
                 .macAddress("00:1A:2B:3C:4D:" + String.format("%02X", System.nanoTime() % 256))
                 .ipAddress("192.168.1." + (System.nanoTime() % 254 + 1))
                 .networkName("PROD-NETWORK")
@@ -111,7 +123,7 @@ class ComputerSystemIntegrationIT {
 
         // Filter by department
         mockMvc.perform(get("/api/v1/computer-systems/filter")
-                .param("department", "IT"))
+                .param("departmentId", itDepartment.getId().toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(greaterThanOrEqualTo(1))));
     }
@@ -123,7 +135,7 @@ class ComputerSystemIntegrationIT {
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
                 .userId(johnDoe.getId())
-                .department("IT")
+                .departmentIds(List.of(itDepartment.getId()))
                 .macAddress("invalid-mac")
                 .ipAddress("192.168.1.100")
                 .networkName("PROD-NETWORK")
@@ -150,7 +162,7 @@ class ComputerSystemIntegrationIT {
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
                 .userId(johnDoe.getId())
-                .department("IT")
+                .departmentIds(List.of(itDepartment.getId()))
                 .macAddress("00:1A:2B:3C:4D:" + String.format("%02X", System.nanoTime() % 256))
                 .ipAddress("192.168.1." + (System.nanoTime() % 254 + 1))
                 .networkName("PROD-NETWORK")
