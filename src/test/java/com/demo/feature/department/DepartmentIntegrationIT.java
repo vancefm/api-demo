@@ -95,6 +95,58 @@ class DepartmentIntegrationIT {
     }
 
     @Test
+    void testFilterDepartmentsByName() throws Exception {
+        String name = "DEPT-" + System.nanoTime();
+        DepartmentDto created = createDepartment(name);
+        createDepartment("DEPT-" + System.nanoTime());
+
+        // Unique nanoTime suffix guarantees exactly one partial-name match
+        mockMvc.perform(get("/api/v1/departments/filter")
+                .param("name", name.substring(5)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements", is(1)))
+                .andExpect(jsonPath("$.content[0].id", is(created.getId().intValue())))
+                .andExpect(jsonPath("$.content[0].name", is(name)));
+    }
+
+    @Test
+    void testFilterUsersByDepartmentAndUsername() throws Exception {
+        DepartmentDto department = createDepartment("DEPT-" + System.nanoTime());
+
+        String memberName = "filter.member." + System.nanoTime();
+        UserDto member = new UserDto();
+        member.setUsername(memberName);
+        member.setEmail(memberName + "@example.com");
+        member.setDepartmentIds(List.of(department.getId()));
+
+        String outsiderName = "filter.outsider." + System.nanoTime();
+        UserDto outsider = new UserDto();
+        outsider.setUsername(outsiderName);
+        outsider.setEmail(outsiderName + "@example.com");
+
+        for (UserDto dto : List.of(member, outsider)) {
+            mockMvc.perform(post("/api/v1/users")
+                    .contentType(MediaType.APPLICATION_JSON_VALUE)
+                    .content(Objects.requireNonNull(objectMapper.writeValueAsString(dto))))
+                    .andExpect(status().isCreated());
+        }
+
+        // Department membership: only the member matches
+        mockMvc.perform(get("/api/v1/users/filter")
+                .param("departmentId", department.getId().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements", is(1)))
+                .andExpect(jsonPath("$.content[0].username", is(memberName)));
+
+        // Partial username match: only the outsider matches
+        mockMvc.perform(get("/api/v1/users/filter")
+                .param("username", outsiderName))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements", is(1)))
+                .andExpect(jsonPath("$.content[0].username", is(outsiderName)));
+    }
+
+    @Test
     void testUpdateDepartment() throws Exception {
         DepartmentDto created = createDepartment("DEPT-" + System.nanoTime());
 

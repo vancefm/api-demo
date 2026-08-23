@@ -55,6 +55,17 @@ public class DepartmentService {
         return repository.findAll(pageable).map(mapper::toDto);
     }
 
+    /**
+     * Filters departments by name and/or description (partial match);
+     * null parameters are ignored.
+     */
+    @Transactional(readOnly = true)
+    public Page<DepartmentDto> filterDepartments(String name, String description, Pageable pageable) {
+        return repository
+                .findAll(DepartmentSpecifications.withFilters(name, description), pageable)
+                .map(mapper::toDto);
+    }
+
     public DepartmentDto updateDepartment(Long id, DepartmentDto dto) {
         Department department = repository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Department with id " + id + NOT_FOUND));
@@ -80,6 +91,9 @@ public class DepartmentService {
             throw new ResourceNotFoundException("Department with id " + id + NOT_FOUND);
         }
 
+        // Every feature with a Department many-to-many must be dissociated here;
+        // when adding one, register its removeDepartmentAssociations call below
+        // (see "Adding a New Domain Model" in README.md).
         userRepository.removeDepartmentAssociations(id);
         computerSystemRepository.removeDepartmentAssociations(id);
         repository.deleteById(id);

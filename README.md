@@ -97,6 +97,7 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
       - [Integrating with Monitoring Systems](#integrating-with-monitoring-systems)
     - [Metrics Configuration](#metrics-configuration)
   - [Code Organization](#code-organization)
+  - [Adding a New Domain Model](#adding-a-new-domain-model)
   - [Ideas for future Enhancements](#ideas-for-future-enhancements)
   - [License](#license)
   - [Support](#support)
@@ -284,7 +285,7 @@ GET /api/v1/computer-systems/hostname/{hostname}
 
 ### Filter Computer Systems
 ```
-GET /api/v1/computer-systems/filter?hostname=SERVER&departmentId=1&user=john&page=0&size=20&sort=id,desc
+GET /api/v1/computer-systems/filter?hostname=SERVER&departmentId=1&userId=7&page=0&size=20&sort=id,desc
 ```
 
 ### Update Computer System
@@ -332,6 +333,11 @@ GET /api/v1/departments?page=0&size=20&sort=name,asc
 ### Get Department by ID
 ```
 GET /api/v1/departments/{id}
+```
+
+### Filter Departments
+```
+GET /api/v1/departments/filter?name=IT&description=Technology&page=0&size=20&sort=name,asc
 ```
 
 ### Update Department
@@ -386,14 +392,33 @@ GET /api/v1/computer-systems?page=1&size=10&sort=hostname,asc
 
 ### Filtering
 
-Filter endpoints support the following query parameters:
-- `hostname`: Partial match (case-insensitive)
-- `departmentId`: Exact match (department membership)
-- `user`: Partial match (case-insensitive)
+Filtering is implemented with **JPA Specifications** (`JpaSpecificationExecutor` +
+a per-feature `<Entity>Specifications` class, e.g. `ComputerSystemSpecifications`,
+`UserSpecifications`, `DepartmentSpecifications`) rather than hand-written
+`@Query` strings — new filter criteria are added as composable specification
+methods. All filter parameters are optional; omitted parameters contribute no
+predicate.
 
-Example:
+`GET /api/v1/computer-systems/filter`:
+- `hostname`: Partial match
+- `departmentId`: Exact match (department membership)
+- `userId`: Exact match (assigned user)
+
+`GET /api/v1/users/filter`:
+- `username`: Partial match
+- `email`: Partial match
+- `departmentId`: Exact match (department membership)
+- `managerId`: Exact match (direct reports of the manager)
+
+`GET /api/v1/departments/filter`:
+- `name`: Partial match
+- `description`: Partial match
+
+Examples:
 ```
-GET /api/v1/computer-systems/filter?hostname=SERVER&departmentId=1&user=john
+GET /api/v1/computer-systems/filter?hostname=SERVER&departmentId=1&userId=7
+GET /api/v1/users/filter?departmentId=1&username=john
+GET /api/v1/departments/filter?name=IT
 ```
 
 ## Data Validation
@@ -1591,6 +1616,62 @@ platform/
     ├── DuplicateResourceException.java, ResourceNotFoundException.java
     └── ErrorResponse.java, GlobalExceptionHandler.java
 ```
+
+## Adding a New Domain Model
+
+Checklist for contributors (human or AI) adding a new entity/feature. The structural
+parts are hard to miss; the **cross-feature hooks** are the ones that silently break
+things when forgotten.
+
+### Structure
+
+1. Create a feature package `com.demo.feature.<name>` containing the entity, DTO,
+   mapper, repository, service, and controller (see [Code Organization](#code-organization)).
+2. Entity extends `BaseEntity` (id + audit timestamps). Collection-valued
+   associations use `Set` with `@Builder.Default` initialization.
+3. DTO carries `@Schema` documentation and Jakarta validation annotations. For
+   associations, follow the ids-in/objects-out convention: requests send
+   `<x>Ids`, responses populate both `<x>Ids` and read-only nested `<x>` DTOs
+   (see the `departmentIds`/`departments` pair on `ComputerSystemDto`).
+4. Controller lives under `/api/v1/...` with OpenAPI annotations and
+   `@PageableDefault` pagination on list endpoints.
+5. Dynamic filtering uses Specifications: extend `JpaSpecificationExecutor` and
+   add an `<Entity>Specifications` class — do not add `@Query` filter methods.
+
+### Cross-feature hooks (easy to forget)
+
+- **Department cascade-dissociate**: if the new model has a many-to-many to
+  `Department`, deleting a department must silently drop the associations.
+  That requires BOTH:
+  1. a native `@Modifying @Query` `removeDepartmentAssociations` method on the
+     new model's repository (the join table has no entity mapping, so native
+     SQL is the only way to target it), and
+  2. a call to that method added to `DepartmentService.deleteDepartment` —
+     there is a marker comment at the call site.
+  Without step 2, deleting a department fails with a foreign-key constraint
+  violation for rows in the new join table.
+- **Symmetric rule**: if *other* models hold a many-to-many to the *new* model,
+  its own service `delete` method must implement the same cascade-dissociate
+  pattern (existence check → dissociate each referencing feature → delete).
+- **Resolve associations through services, not repositories**: cross-feature ID
+  resolution goes through the owning feature's public service (e.g.
+  `DepartmentService.resolveDepartments`), which owns the 404-on-unknown-ID
+  behavior. Never inject another feature's repository for reads.
+- **Duplicate/uniqueness checks** in the service throw
+  `DuplicateResourceException` / `ResourceNotFoundException` so
+  `GlobalExceptionHandler` maps them to RFC 9457 responses.
+
+### Tests & docs
+
+- Add tests at all four layers: repository `@DataJpaTest`, service unit test,
+  controller `@WebMvcTest`, and full integration test (see
+  [Test Architecture](#test-architecture)).
+- If the model hooks into `deleteDepartment`, extend `DepartmentServiceTest`'s
+  delete verifications (`verify(...).removeDepartmentAssociations(id)`).
+- Update this README: entity fields, endpoint examples, and test counts.
+- Optional: custom metrics (`app.<domain>.<name>`, see
+  [Adding New Metrics](#adding-new-metrics)) and circuit breaker protection for
+  the service if it fits the pattern used by `ComputerSystemService`.
 
 ## Ideas for future Enhancements
 

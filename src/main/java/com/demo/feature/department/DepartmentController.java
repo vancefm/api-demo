@@ -61,6 +61,20 @@ public class DepartmentController {
         return ResponseEntity.ok(departmentService.getAllDepartments(pageable));
     }
 
+    @GetMapping("/filter")
+    @Operation(summary = "Filter departments",
+        description = "Filters departments by partial name and/or description match with pagination and sorting")
+    @ApiResponse(responseCode = "200", description = "Filtered departments retrieved")
+    @Parameter(name = "page", description = "Zero-indexed page number", in = ParameterIn.QUERY, example = "0")
+    @Parameter(name = "size", description = "Page size", in = ParameterIn.QUERY, example = "20")
+    @Parameter(name = "sort", description = "Sort field and direction (e.g. name,asc)", in = ParameterIn.QUERY, example = "id,asc")
+    public ResponseEntity<Page<DepartmentDto>> filterDepartments(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String description,
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(departmentService.filterDepartments(name, description, pageable));
+    }
+
     @PutMapping("/{id}")
     @Operation(summary = "Update department", description = "Update an existing department")
     @ApiResponses(value = {

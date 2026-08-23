@@ -1,9 +1,7 @@
 package com.demo.feature.computersystem;
 
-import com.demo.feature.computersystem.ComputerSystem;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,8 +9,14 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
+/**
+ * Dynamic filtering is done through {@link JpaSpecificationExecutor} with the
+ * specifications defined in {@link ComputerSystemSpecifications} — prefer
+ * composing specifications over adding new {@code @Query} filter methods.
+ */
 @Repository
-public interface ComputerSystemRepository extends JpaRepository<ComputerSystem, Long> {
+public interface ComputerSystemRepository
+        extends JpaRepository<ComputerSystem, Long>, JpaSpecificationExecutor<ComputerSystem> {
 
     Optional<ComputerSystem> findByHostname(String hostname);
 
@@ -20,24 +24,14 @@ public interface ComputerSystemRepository extends JpaRepository<ComputerSystem, 
 
     Optional<ComputerSystem> findByIpAddress(String ipAddress);
 
-    // The department filter uses a correlated EXISTS subquery rather than a join:
-    // a join would fan out one row per associated department, inflating Page
-    // totals, and would wrongly exclude zero-department systems when unfiltered.
-    @Query("SELECT cs FROM ComputerSystem cs WHERE " +
-           "(:hostname IS NULL OR cs.hostname LIKE %:hostname%) AND " +
-           "(:departmentId IS NULL OR EXISTS (SELECT 1 FROM cs.departments d WHERE d.id = :departmentId)) AND " +
-           "(:userId IS NULL OR cs.systemUser.id = :userId)")
-    Page<ComputerSystem> findByFilters(
-            @Param("hostname") String hostname,
-            @Param("departmentId") Long departmentId,
-            @Param("userId") Long userId,
-            Pageable pageable
-    );
-
     /**
      * Removes all computer-system associations for a department
-     * (cascade-dissociate on department deletion). Native SQL — the join table
-     * has no entity mapping.
+     * (cascade-dissociate on department deletion). Deliberately a native
+     * {@code @Modifying} query rather than a Specification or entity-level
+     * removal: the join table has no entity mapping (so JPQL/Criteria cannot
+     * target it), and loading every affected system just to mutate its
+     * collection would be a bulk N+1. Callers must not have affected entities
+     * loaded in the persistence context (the bulk delete bypasses it).
      */
     @Modifying
     @Query(value = "DELETE FROM computer_system_departments WHERE department_id = :departmentId", nativeQuery = true)

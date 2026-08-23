@@ -1,16 +1,19 @@
 package com.demo.feature.user;
 
-import com.demo.feature.user.UserDto;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 /**
  * REST controller for user management.
@@ -39,10 +42,29 @@ public class UserManagementController {
     }
 
     @GetMapping
-    @Operation(summary = "Get all users", description = "Retrieve all users in the system")
-    public ResponseEntity<List<UserDto>> getAllUsers() {
-        List<UserDto> users = userManagementService.getAllUsers();
-        return ResponseEntity.ok(users);
+    @Operation(summary = "Get all users", description = "Retrieve all users with pagination")
+    @Parameter(name = "page", description = "Zero-indexed page number", in = ParameterIn.QUERY, example = "0")
+    @Parameter(name = "size", description = "Page size", in = ParameterIn.QUERY, example = "20")
+    @Parameter(name = "sort", description = "Sort field and direction (e.g. username,asc)", in = ParameterIn.QUERY, example = "id,asc")
+    public ResponseEntity<Page<UserDto>> getAllUsers(
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(userManagementService.getAllUsers(pageable));
+    }
+
+    @GetMapping("/filter")
+    @Operation(summary = "Filter users",
+        description = "Filters users by partial username/email match, department membership, and/or manager with pagination and sorting")
+    @ApiResponse(responseCode = "200", description = "Filtered users retrieved")
+    @Parameter(name = "page", description = "Zero-indexed page number", in = ParameterIn.QUERY, example = "0")
+    @Parameter(name = "size", description = "Page size", in = ParameterIn.QUERY, example = "20")
+    @Parameter(name = "sort", description = "Sort field and direction (e.g. username,asc)", in = ParameterIn.QUERY, example = "id,asc")
+    public ResponseEntity<Page<UserDto>> filterUsers(
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) Long departmentId,
+            @RequestParam(required = false) Long managerId,
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(userManagementService.filterUsers(username, email, departmentId, managerId, pageable));
     }
 
     @GetMapping("/{id}")

@@ -5,11 +5,10 @@ import com.demo.platform.exception.DuplicateResourceException;
 import com.demo.platform.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Service for managing users.
@@ -48,10 +47,21 @@ public class UserManagementService {
         return userMapper.toDto(saved);
     }
 
-    public List<UserDto> getAllUsers() {
-        return userRepository.findAll().stream()
-            .map(userMapper::toDto)
-            .collect(Collectors.toList());
+    @Transactional(readOnly = true)
+    public Page<UserDto> getAllUsers(Pageable pageable) {
+        return userRepository.findAll(pageable).map(userMapper::toDto);
+    }
+
+    /**
+     * Filters users by username/email (partial match), department membership,
+     * and/or manager; null parameters are ignored.
+     */
+    @Transactional(readOnly = true)
+    public Page<UserDto> filterUsers(String username, String email, Long departmentId, Long managerId,
+                                     Pageable pageable) {
+        return userRepository
+            .findAll(UserSpecifications.withFilters(username, email, departmentId, managerId), pageable)
+            .map(userMapper::toDto);
     }
 
     public UserDto getUserById(Long id) {

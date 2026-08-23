@@ -153,7 +153,9 @@ public class ComputerSystemService {
             Long departmentId,
             Long userId,
             Pageable pageable) {
-        return repository.findByFilters(hostname, departmentId, userId, pageable).map(mapper::toDto);
+        return repository
+                .findAll(ComputerSystemSpecifications.withFilters(hostname, departmentId, userId), pageable)
+                .map(mapper::toDto);
     }
 
     /**

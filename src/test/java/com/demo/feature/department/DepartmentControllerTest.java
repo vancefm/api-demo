@@ -112,6 +112,20 @@ class DepartmentControllerTest {
     }
 
     @Test
+    void testFilterDepartments() throws Exception {
+        Page<DepartmentDto> page = new PageImpl<>(Arrays.asList(testDto), PageRequest.of(0, 20), 1);
+        when(service.filterDepartments(any(), any(), any())).thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/departments/filter")
+                .param("name", "IT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].name", is("IT")));
+
+        verify(service, times(1)).filterDepartments(eq("IT"), any(), any());
+    }
+
+    @Test
     void testUpdateDepartment() throws Exception {
         when(service.updateDepartment(eq(1L), any(DepartmentDto.class))).thenReturn(testDto);
 
