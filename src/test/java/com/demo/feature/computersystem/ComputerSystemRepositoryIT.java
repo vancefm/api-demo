@@ -1,7 +1,6 @@
 package com.demo.feature.computersystem;
 
 import com.demo.feature.user.UserRepository;
-import com.demo.feature.computersystem.ComputerSystem;
 import com.demo.feature.user.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

@@ -1,7 +1,5 @@
 package com.demo.feature.computersystem;
 
-import com.demo.feature.computersystem.ComputerSystemDto;
-import com.demo.feature.computersystem.ComputerSystemMapper;
 import com.demo.feature.department.Department;
 import com.demo.feature.department.DepartmentMapper;
 import com.demo.feature.department.DepartmentService;
@@ -9,7 +7,6 @@ import com.demo.feature.user.User;
 import com.demo.feature.user.UserRepository;
 import com.demo.platform.exception.DuplicateResourceException;
 import com.demo.platform.exception.ResourceNotFoundException;
-import com.demo.feature.computersystem.ComputerSystem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

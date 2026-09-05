@@ -1,8 +1,5 @@
 package com.demo.feature.computersystem.batch;
 
-import com.demo.feature.computersystem.batch.BatchProperties;
-import com.demo.feature.computersystem.batch.BatchComputerSystemRequest;
-import com.demo.feature.computersystem.batch.BatchComputerSystemResponse;
 import com.demo.feature.computersystem.ComputerSystemDto;
 import com.demo.feature.computersystem.ComputerSystemService;
 import io.swagger.v3.oas.annotations.Operation;
