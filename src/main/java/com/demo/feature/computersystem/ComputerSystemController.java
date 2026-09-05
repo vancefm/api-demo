@@ -1,6 +1,5 @@
 package com.demo.feature.computersystem;
 
-import com.demo.feature.computersystem.ComputerSystemDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -88,18 +87,18 @@ public class ComputerSystemController {
 
     @GetMapping("/filter")
     @Operation(summary = "Filter computer systems",
-               description = "Filters computer systems based on hostname, department, and user with pagination and sorting")
+               description = "Filters computer systems based on hostname, department membership, and user with pagination and sorting")
     @ApiResponse(responseCode = "200", description = "Filtered computer systems retrieved")
     @Parameter(name = "page", description = "Page number (0-indexed)", example = "0", in = ParameterIn.QUERY)
     @Parameter(name = "size", description = "Page size", example = "20", in = ParameterIn.QUERY)
     @Parameter(name = "sort", description = "Sort criteria (e.g., 'id,desc')", example = "id,asc", in = ParameterIn.QUERY)
     public ResponseEntity<Page<ComputerSystemDto>> filterComputerSystems(
             @RequestParam(required = false) String hostname,
-            @RequestParam(required = false) String department,
+            @RequestParam(required = false) Long departmentId,
             @RequestParam(required = false) Long userId,
             @PageableDefault(size = 20, page = 0, sort = "id", direction = Sort.Direction.ASC) Pageable pageable) {
         Page<ComputerSystemDto> computerSystems = computerSystemService.filterComputerSystems(
-                hostname, department, userId, pageable);
+                hostname, departmentId, userId, pageable);
         return ResponseEntity.ok(computerSystems);
     }
 

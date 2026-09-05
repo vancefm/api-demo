@@ -1,14 +1,17 @@
 package com.demo.feature.user;
 
+import com.demo.feature.department.DepartmentLinks;
+import com.demo.feature.department.DepartmentService;
 import com.demo.platform.exception.DuplicateResourceException;
 import com.demo.platform.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Service for managing users.
@@ -21,6 +24,7 @@ public class UserManagementService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final DepartmentService departmentService;
 
     public UserDto createUser(UserDto dto) {
         if (userRepository.existsByUsername(dto.getUsername())) {
@@ -32,6 +36,7 @@ public class UserManagementService {
         }
 
         User user = userMapper.toEntity(dto);
+        setDepartmentLinks(user, dto.getDepartmentIds());
 
         if (dto.getManagerId() != null) {
             User manager = userRepository.findById(dto.getManagerId())
@@ -45,10 +50,21 @@ public class UserManagementService {
         return userMapper.toDto(saved);
     }
 
-    public List<UserDto> getAllUsers() {
-        return userRepository.findAll().stream()
-            .map(userMapper::toDto)
-            .collect(Collectors.toList());
+    @Transactional(readOnly = true)
+    public Page<UserDto> getAllUsers(Pageable pageable) {
+        return userRepository.findAll(pageable).map(userMapper::toDto);
+    }
+
+    /**
+     * Filters users by username/email (partial match), department membership,
+     * and/or manager; null parameters are ignored.
+     */
+    @Transactional(readOnly = true)
+    public Page<UserDto> filterUsers(String username, String email, Long departmentId, Long managerId,
+                                     Pageable pageable) {
+        return userRepository
+            .findAll(UserSpecifications.withFilters(username, email, departmentId, managerId), pageable)
+            .map(userMapper::toDto);
     }
 
     public UserDto getUserById(Long id) {
@@ -72,6 +88,7 @@ public class UserManagementService {
         }
 
         userMapper.updateEntityFromDto(dto, user);
+        setDepartmentLinks(user, dto.getDepartmentIds());
 
         if (dto.getManagerId() != null) {
             User manager = userRepository.findById(dto.getManagerId())
@@ -87,6 +104,30 @@ public class UserManagementService {
         return userMapper.toDto(updated);
     }
 
+    /**
+     * Reconciles the user's department links with the requested IDs. Unknown IDs
+     * fail the call with a 404 via
+     * {@link DepartmentService#resolveDepartments}; null or empty clears them.
+     *
+     * <p>The links are owned by the {@code departmentLinks} collection
+     * ({@code cascade = ALL}, {@code orphanRemoval = true}), so no repository
+     * call is needed — the diff is flushed with the user itself.
+     */
+    private void setDepartmentLinks(User user, List<Long> departmentIds) {
+        DepartmentLinks.replace(
+            user.getDepartmentLinks(),
+            UserDepartment::getDepartment,
+            departmentService.resolveDepartments(departmentIds),
+            department -> UserDepartment.builder()
+                .user(user)
+                .department(department)
+                .build());
+    }
+
+    /**
+     * Deletes a user. Its department links are removed by the
+     * {@code ON DELETE CASCADE} foreign key on {@link UserDepartment}.
+     */
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("User with id " + id + " not found"));

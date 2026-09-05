@@ -1,12 +1,12 @@
 package com.demo.feature.computersystem;
 
-import com.demo.feature.computersystem.ComputerSystemDto;
-import com.demo.feature.computersystem.ComputerSystemMapper;
+import com.demo.feature.department.Department;
+import com.demo.feature.department.DepartmentMapper;
+import com.demo.feature.department.DepartmentService;
 import com.demo.feature.user.User;
 import com.demo.feature.user.UserRepository;
 import com.demo.platform.exception.DuplicateResourceException;
 import com.demo.platform.exception.ResourceNotFoundException;
-import com.demo.feature.computersystem.ComputerSystem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,7 +18,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -33,6 +35,9 @@ class ComputerSystemServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private DepartmentService departmentService;
+
     private ComputerSystemMapper mapper;
 
     private ComputerSystemService service;
@@ -40,17 +45,22 @@ class ComputerSystemServiceTest {
     private ComputerSystem testComputerSystem;
     private ComputerSystemDto testDto;
     private User testUser;
+    private Department testDepartment;
 
     @BeforeEach
     void setUp() {
-        mapper = new ComputerSystemMapper();
-        service = new ComputerSystemService(repository, userRepository, mapper);
+        mapper = new ComputerSystemMapper(new DepartmentMapper());
+        service = new ComputerSystemService(repository, userRepository, departmentService, mapper);
 
         testUser = User.builder()
                 .id(1L)
                 .username("john.doe")
                 .email("john.doe@example.com")
-                .department("IT")
+                .build();
+
+        testDepartment = Department.builder()
+                .id(1L)
+                .name("IT")
                 .build();
 
         testComputerSystem = ComputerSystem.builder()
@@ -59,11 +69,15 @@ class ComputerSystemServiceTest {
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
                 .systemUser(testUser)
-                .department("IT")
                 .macAddress("00:1A:2B:3C:4D:5E")
                 .ipAddress("192.168.1.100")
                 .networkName("PROD-NETWORK")
                 .build();
+
+        testComputerSystem.getDepartmentLinks().add(ComputerSystemDepartment.builder()
+                .computerSystem(testComputerSystem)
+                .department(testDepartment)
+                .build());
 
         testDto = ComputerSystemDto.builder()
                 .id(1L)
@@ -71,7 +85,7 @@ class ComputerSystemServiceTest {
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
                 .userId(1L)
-                .department("IT")
+                .departmentIds(List.of(1L))
                 .macAddress("00:1A:2B:3C:4D:5E")
                 .ipAddress("192.168.1.100")
                 .networkName("PROD-NETWORK")
@@ -84,6 +98,7 @@ class ComputerSystemServiceTest {
         when(repository.findByMacAddress(testDto.getMacAddress())).thenReturn(Optional.empty());
         when(repository.findByIpAddress(testDto.getIpAddress())).thenReturn(Optional.empty());
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(departmentService.resolveDepartments(testDto.getDepartmentIds())).thenReturn(Set.of(testDepartment));
         when(repository.save(any(ComputerSystem.class))).thenReturn(testComputerSystem);
 
         ComputerSystemDto result = service.createComputerSystem(testDto);
@@ -143,6 +158,7 @@ class ComputerSystemServiceTest {
     void testUpdateComputerSystem_Success() {
         when(repository.findById(1L)).thenReturn(Optional.of(testComputerSystem));
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(departmentService.resolveDepartments(testDto.getDepartmentIds())).thenReturn(Set.of(testDepartment));
         when(repository.save(any(ComputerSystem.class))).thenReturn(testComputerSystem);
 
         ComputerSystemDto result = service.updateComputerSystem(1L, testDto);

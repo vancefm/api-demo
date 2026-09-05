@@ -97,6 +97,7 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
       - [Integrating with Monitoring Systems](#integrating-with-monitoring-systems)
     - [Metrics Configuration](#metrics-configuration)
   - [Code Organization](#code-organization)
+  - [Adding a New Domain Model](#adding-a-new-domain-model)
   - [Ideas for future Enhancements](#ideas-for-future-enhancements)
   - [License](#license)
   - [Support](#support)
@@ -231,10 +232,26 @@ The application will start on `http://localhost:8080`
 - **manufacturer**: Computer manufacturer (required)
 - **model**: Computer model (required)
 - **user**: Computer user (required)
-- **department**: Department (required)
+- **departmentIds**: IDs of owning departments (optional, zero or more — shared ownership)
+- **departments**: Owning departments as full objects (populated on read)
 - **macAddress**: MAC address (unique, required, validated)
 - **ipAddress**: IP address (unique, required, validated)
 - **networkName**: Network name (required)
+
+### Department Entity Fields
+
+- **id**: Unique identifier (auto-generated)
+- **name**: Department name (unique, required)
+- **description**: Department description (optional)
+
+`departments` is a registry table: it holds only the departments that exist and
+carries no references back to its owners. Each owning model links to it through
+its own join table (`user_departments`, `computer_system_departments`), mapped as
+a join entity (`UserDepartment`, `ComputerSystemDepartment`) so both foreign keys
+can declare `ON DELETE CASCADE`. Each owner may belong to zero, one, or many
+departments (shared ownership). Requests reference departments by ID via
+`departmentIds`; responses include both `departmentIds` and the full nested
+`departments` objects.
 
 ### API Endpoints
 
@@ -248,7 +265,7 @@ Content-Type: application/json
   "manufacturer": "Dell",
   "model": "PowerEdge R750",
   "user": "john.doe",
-  "department": "IT",
+  "departmentIds": [1],
   "macAddress": "00:1A:2B:3C:4D:5E",
   "ipAddress": "192.168.1.100",
   "networkName": "PROD-NETWORK"
@@ -272,7 +289,7 @@ GET /api/v1/computer-systems/hostname/{hostname}
 
 ### Filter Computer Systems
 ```
-GET /api/v1/computer-systems/filter?hostname=SERVER&department=IT&user=john&page=0&size=20&sort=id,desc
+GET /api/v1/computer-systems/filter?hostname=SERVER&departmentId=1&userId=7&page=0&size=20&sort=id,desc
 ```
 
 ### Update Computer System
@@ -285,7 +302,7 @@ Content-Type: application/json
   "manufacturer": "HP",
   "model": "ProLiant DL380",
   "user": "jane.doe",
-  "department": "HR",
+  "departmentIds": [2],
   "macAddress": "00:1A:2B:3C:4D:5F",
   "ipAddress": "192.168.1.101",
   "networkName": "PROD-NETWORK"
@@ -295,6 +312,76 @@ Content-Type: application/json
 ### Delete Computer System
 ```
 DELETE /api/v1/computer-systems/{id}
+```
+
+## Departments API
+
+Full CRUD for departments at `/api/v1/departments`.
+
+### Create Department
+```
+POST /api/v1/departments
+Content-Type: application/json
+
+{
+  "name": "IT",
+  "description": "Information Technology"
+}
+```
+
+### Get All Departments (with pagination)
+```
+GET /api/v1/departments?page=0&size=20&sort=name,asc
+```
+
+### Get Department by ID
+```
+GET /api/v1/departments/{id}
+```
+
+### Filter Departments
+```
+GET /api/v1/departments/filter?name=IT&description=Technology&page=0&size=20&sort=name,asc
+```
+
+### Update Department
+```
+PUT /api/v1/departments/{id}
+Content-Type: application/json
+
+{
+  "name": "IT",
+  "description": "Information Technology and Operations"
+}
+```
+
+### Delete Department
+```
+DELETE /api/v1/departments/{id}
+```
+
+> **Note:** Deleting a department is never blocked by existing assignments — any
+> users or computer systems that reference it are **silently dissociated** (their
+> `departmentIds`/`departments` simply shrink). There is no orphan check.
+>
+> Dissociation is enforced by `ON DELETE CASCADE` on each join table's
+> `department_id` foreign key, not by application code, so it applies to every
+> owning model automatically — including ones added later.
+
+Department fields on users and computer systems:
+- Requests (create/update) send `"departmentIds": [1, 3]` referencing existing
+  departments; unknown IDs fail the request with 404. Omitting `departmentIds`
+  (or sending an empty list) on an update clears all department assignments.
+- Responses include both `departmentIds` and nested `departments` objects, e.g.:
+```json
+{
+  "id": 42,
+  "hostname": "SERVER-001",
+  "departmentIds": [1],
+  "departments": [
+    {"id": 1, "name": "IT", "description": "Information Technology"}
+  ]
+}
 ```
 
 ## Query Features
@@ -313,14 +400,33 @@ GET /api/v1/computer-systems?page=1&size=10&sort=hostname,asc
 
 ### Filtering
 
-Filter endpoints support the following query parameters:
-- `hostname`: Partial match (case-insensitive)
-- `department`: Exact match
-- `user`: Partial match (case-insensitive)
+Filtering is implemented with **JPA Specifications** (`JpaSpecificationExecutor` +
+a per-feature `<Entity>Specifications` class, e.g. `ComputerSystemSpecifications`,
+`UserSpecifications`, `DepartmentSpecifications`) rather than hand-written
+`@Query` strings — new filter criteria are added as composable specification
+methods. All filter parameters are optional; omitted parameters contribute no
+predicate.
 
-Example:
+`GET /api/v1/computer-systems/filter`:
+- `hostname`: Partial match
+- `departmentId`: Exact match (department membership)
+- `userId`: Exact match (assigned user)
+
+`GET /api/v1/users/filter`:
+- `username`: Partial match
+- `email`: Partial match
+- `departmentId`: Exact match (department membership)
+- `managerId`: Exact match (direct reports of the manager)
+
+`GET /api/v1/departments/filter`:
+- `name`: Partial match
+- `description`: Partial match
+
+Examples:
 ```
-GET /api/v1/computer-systems/filter?hostname=SERVER&department=IT&user=john
+GET /api/v1/computer-systems/filter?hostname=SERVER&departmentId=1&userId=7
+GET /api/v1/users/filter?departmentId=1&username=john
+GET /api/v1/departments/filter?name=IT
 ```
 
 ## Data Validation
@@ -331,7 +437,7 @@ GET /api/v1/computer-systems/filter?hostname=SERVER&department=IT&user=john
 - **manufacturer**: Required
 - **model**: Required
 - **user**: Required
-- **department**: Required
+- **departmentIds**: Optional (zero or more); every ID must reference an existing department
 - **macAddress**: Required, must match pattern `XX:XX:XX:XX:XX:XX`
 - **ipAddress**: Required, must be valid IPv4 format
 - **networkName**: Required
@@ -813,7 +919,7 @@ Content-Type: application/json
       "manufacturer": "Dell",
       "model": "PowerEdge R750",
       "user": "john.doe",
-      "department": "IT",
+      "departmentIds": [1],
       "macAddress": "00:1A:2B:3C:4D:5E",
       "ipAddress": "192.168.1.100",
       "networkName": "PROD-NETWORK"
@@ -823,7 +929,7 @@ Content-Type: application/json
       "manufacturer": "Dell",
       "model": "PowerEdge R750",
       "user": "jane.smith",
-      "department": "IT",
+      "departmentIds": [1],
       "macAddress": "00:1A:2B:3C:4D:5F",
       "ipAddress": "192.168.1.101",
       "networkName": "PROD-NETWORK"
@@ -842,7 +948,8 @@ Content-Type: application/json
       "manufacturer": "Dell",
       "model": "PowerEdge R750",
       "user": "john.doe",
-      "department": "IT",
+      "departmentIds": [1],
+      "departments": [{"id": 1, "name": "IT", "description": "Information Technology"}],
       "macAddress": "00:1A:2B:3C:4D:5E",
       "ipAddress": "192.168.1.100",
       "networkName": "PROD-NETWORK"
@@ -853,7 +960,8 @@ Content-Type: application/json
       "manufacturer": "Dell",
       "model": "PowerEdge R750",
       "user": "jane.smith",
-      "department": "IT",
+      "departmentIds": [1],
+      "departments": [{"id": 1, "name": "IT", "description": "Information Technology"}],
       "macAddress": "00:1A:2B:3C:4D:5F",
       "ipAddress": "192.168.1.101",
       "networkName": "PROD-NETWORK"
@@ -900,7 +1008,7 @@ Content-Type: application/json
       "manufacturer": "Dell",
       "model": "PowerEdge R750",
       "user": "john.doe",
-      "department": "DevOps",  # Updated
+      "departmentIds": [3],  # Reassigned to the DevOps department
       ...
     },
     {
@@ -909,7 +1017,7 @@ Content-Type: application/json
       "manufacturer": "Dell",
       "model": "PowerEdge R750",
       "user": "jane.smith",
-      "department": "DevOps",  # Updated
+      "departmentIds": [3],  # Reassigned to the DevOps department
       ...
     }
   ]
@@ -920,7 +1028,7 @@ Content-Type: application/json
 All items updated successfully, or HTTP 404 if any item not found (none updated).
 
 **Use Cases:**
-- **Bulk Configuration**: Update 50 servers to new department
+- **Bulk Configuration**: Reassign 50 servers to a new department via `departmentIds`
 - **Bulk Rename**: Update hostnames for multiple systems
 - **Bulk Reconfig**: Update network settings across systems
 
@@ -1460,9 +1568,16 @@ package, instead of being split across separate domain/application packages.
 feature/
 ├── user/
 │   ├── User.java, UserDto.java, UserMapper.java
+│   ├── UserDepartment.java                 // join entity → department
 │   └── UserRepository.java, UserManagementService.java, UserManagementController.java
+├── department/
+│   ├── Department.java, DepartmentDto.java, DepartmentMapper.java
+│   ├── DepartmentLinks.java                // reconciles an owner's link collection
+│   ├── DepartmentSpecifications.java       // incl. assignedToDepartment, shared by owners
+│   └── DepartmentRepository.java, DepartmentService.java, DepartmentController.java
 ├── computersystem/
 │   ├── ComputerSystem.java, ComputerSystemDto.java, ComputerSystemMapper.java
+│   ├── ComputerSystemDepartment.java       // join entity → department
 │   ├── ComputerSystemRepository.java, ComputerSystemService.java, ComputerSystemController.java
 │   ├── ComputerSystemMetrics.java
 │   └── batch/
@@ -1514,6 +1629,99 @@ platform/
     └── ErrorResponse.java, GlobalExceptionHandler.java
 ```
 
+## Adding a New Domain Model
+
+Checklist for contributors (human or AI) adding a new entity/feature. The structural
+parts are hard to miss; the **cross-feature hooks** are the ones that silently break
+things when forgotten.
+
+### Structure
+
+1. Create a feature package `com.demo.feature.<name>` containing the entity, DTO,
+   mapper, repository, service, and controller (see [Code Organization](#code-organization)).
+2. Entity extends `BaseEntity` (id + audit timestamps). Collection-valued
+   associations use `Set` with `@Builder.Default` initialization.
+3. DTO carries `@Schema` documentation and Jakarta validation annotations. For
+   associations, follow the ids-in/objects-out convention: requests send
+   `<x>Ids`, responses populate both `<x>Ids` and read-only nested `<x>` DTOs
+   (see the `departmentIds`/`departments` pair on `ComputerSystemDto`).
+4. Controller lives under `/api/v1/...` with OpenAPI annotations and
+   `@PageableDefault` pagination on list endpoints.
+5. Dynamic filtering uses Specifications: extend `JpaSpecificationExecutor` and
+   add an `<Entity>Specifications` class — do not add `@Query` filter methods.
+
+### Associating a new model with departments
+
+Nothing needs registering in the department feature — not a call, not a list, not
+an enum. Deletion is enforced by foreign keys, so a new owner type cannot be
+forgotten. Copy the pattern from `ComputerSystemDepartment` / `UserDepartment`:
+
+1. **Join entity** `<Owner>Department extends BaseEntity` in the *owner's* package,
+   mapped to a `<owner>_departments` table with two `@ManyToOne`s — one to the
+   owner, one to `Department` — and `@OnDelete(action = OnDeleteAction.CASCADE)`
+   on **both**. Add a `@UniqueConstraint` on the id pair and an index on
+   `department_id`. The join row is an entity rather than an implicit
+   `@ManyToMany` join table for a specific reason: `@OnDelete` on a many-to-many
+   collection only reaches the FK pointing at the owning table, so cascading the
+   *department* side would otherwise need a hand-written DDL string.
+2. **Collection on the owner**: `@OneToMany(mappedBy = "...", cascade = ALL,
+   orphanRemoval = true)` plus `@BatchSize(size = 50)`, named exactly
+   `departmentLinks` — `DepartmentSpecifications.assignedToDepartment` resolves
+   that name. `orphanRemoval` means link changes flush with the owner, so the
+   join entity needs no repository of its own.
+3. **Create/update**: `DepartmentLinks.replace(...)` reconciles the collection
+   against the requested IDs (see `ComputerSystemService.setDepartmentLinks`). It
+   diffs rather than rebuilding, so surviving links keep their audit timestamps.
+4. **Delete**: nothing to do — the owner-side `ON DELETE CASCADE` removes links.
+5. **Filter**: delegate the `departmentId` predicate to
+   `DepartmentSpecifications.assignedToDepartment(departmentId)`; do not write
+   another `inDepartment` specification.
+
+> **Careful:** the cascades exist only because Hibernate generates the schema
+> (`ddl-auto`). Adopting Flyway means writing `ON DELETE CASCADE` into the
+> migrations, or dissociation silently stops working — `DepartmentCascadeIT`
+> asserts `DELETE_RULE = CASCADE` straight out of `INFORMATION_SCHEMA` to catch
+> exactly that.
+
+### Fetching associations: entity graphs vs. `@BatchSize`
+
+One rule, and getting it backwards is a silent performance bug rather than a
+failure:
+
+- **Single-entity reads** (`findById`, `findByHostname`) → `@EntityGraph`, including
+  the collection paths.
+- **Paged reads** (`findAll(Pageable)`, `findAll(Specification, Pageable)`) → graph
+  only to-one associations. A collection-fetching graph combined with pagination
+  makes Hibernate join the collection and paginate **in memory** (`HHH000104`),
+  loading the entire result set. Collections are batched instead, via
+  `@BatchSize` on the collection itself.
+
+`ComputerSystemDepartmentFetchIT` pins this by asserting the query count for a
+page does not grow with page size.
+
+### Cross-feature hooks (easy to forget)
+
+- **Resolve associations through services, not repositories**: cross-feature ID
+  resolution goes through the owning feature's public service (e.g.
+  `DepartmentService.resolveDepartments`), which owns the 404-on-unknown-ID
+  behavior. Never inject another feature's repository for reads.
+- **Duplicate/uniqueness checks** in the service throw
+  `DuplicateResourceException` / `ResourceNotFoundException` so
+  `GlobalExceptionHandler` maps them to RFC 9457 responses.
+
+### Tests & docs
+
+- Add tests at all four layers: repository `@DataJpaTest`, service unit test,
+  controller `@WebMvcTest`, and full integration test (see
+  [Test Architecture](#test-architecture)).
+- If the model associates to departments, extend `DepartmentCascadeIT` to cover
+  its join table in both directions (deleting the department, deleting the owner).
+  There is nothing to assert at the unit level — dissociation is the database's job.
+- Update this README: entity fields, endpoint examples, and test counts.
+- Optional: custom metrics (`app.<domain>.<name>`, see
+  [Adding New Metrics](#adding-new-metrics)) and circuit breaker protection for
+  the service if it fits the pattern used by `ComputerSystemService`.
+
 ## Ideas for future Enhancements
 
 - Rebuild authentication and authorization (overhaul in progress on `overhaul/auth-features`)
@@ -1525,7 +1733,8 @@ platform/
 - Implement distributed tracing with OpenTelemetry (successor to Spring Cloud Sleuth)
 - ~~Add custom metrics collection (Micrometer)~~ ✅ **IMPLEMENTED: Custom metrics via Micrometer**
 - Implement database-level auditing and change tracking
-- Flyway database migration
+- Flyway database migration — the join tables' `ON DELETE CASCADE` foreign keys
+  must be written into the migrations; department dissociation depends on them
 
 ## License
 

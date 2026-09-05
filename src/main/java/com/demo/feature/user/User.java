@@ -3,11 +3,15 @@ package com.demo.feature.user;
 import com.demo.platform.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
-import java.time.LocalDateTime;
+import org.hibernate.annotations.BatchSize;
+
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Entity representing a user in the system.
@@ -28,31 +32,25 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 255)
     private String email;
 
-    @Column(nullable = false, length = 100)
-    private String department;
-
     @Column(nullable = true, length = 255)
     private String passwordHash;
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "manager_id")
     private User manager;
 
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
+    /**
+     * Department links. Fetching is deliberately driven by {@link BatchSize}
+     * rather than an {@code @EntityGraph} on paged queries: a collection-fetching
+     * graph combined with pagination makes Hibernate join the collection and
+     * paginate in memory (HHH000104), loading the whole result set. Batching
+     * keeps a page at one query plus a small constant number of {@code IN}
+     * queries. Entity graphs are still used for single-entity reads — see
+     * {@link UserRepository}.
+     */
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 50)
+    @Builder.Default
+    private Set<UserDepartment> departmentLinks = new HashSet<>();
 
 }

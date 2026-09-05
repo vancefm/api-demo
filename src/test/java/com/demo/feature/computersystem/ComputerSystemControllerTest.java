@@ -1,6 +1,5 @@
 package com.demo.feature.computersystem;
 
-import com.demo.feature.computersystem.ComputerSystemDto;
 import com.demo.integration.mail.EmailNotificationService;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 import static org.hamcrest.Matchers.*;
@@ -51,7 +51,7 @@ class ComputerSystemControllerTest {
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
                 .userId(1L)
-                .department("IT")
+                .departmentIds(List.of(1L))
                 .macAddress("00:1A:2B:3C:4D:5E")
                 .ipAddress("192.168.1.100")
                 .networkName("PROD-NETWORK")
@@ -114,7 +114,7 @@ class ComputerSystemControllerTest {
         when(service.filterComputerSystems(any(), any(), any(), any())).thenReturn(page);
 
         mockMvc.perform(get("/api/v1/computer-systems/filter")
-                .param("department", "IT"))
+                .param("departmentId", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(1)));
 

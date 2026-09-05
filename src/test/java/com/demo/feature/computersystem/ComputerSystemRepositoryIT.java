@@ -1,7 +1,6 @@
 package com.demo.feature.computersystem;
 
 import com.demo.feature.user.UserRepository;
-import com.demo.feature.computersystem.ComputerSystem;
 import com.demo.feature.user.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,7 +31,6 @@ class ComputerSystemRepositoryIT {
         testUser = userRepository.save(User.builder()
             .username("admin")
             .email("admin@example.com")
-            .department("IT")
             .build());
 
         testSystem = ComputerSystem.builder()
@@ -42,7 +40,6 @@ class ComputerSystemRepositoryIT {
             .manufacturer("Dell")
             .model("PowerEdge R750")
             .systemUser(testUser)
-            .department("IT")
             .networkName("VLAN-001")
             .build();
     }
@@ -112,7 +109,6 @@ class ComputerSystemRepositoryIT {
             .manufacturer("Dell")
             .model("PowerEdge R750")
             .systemUser(testUser)
-            .department("IT")
             .networkName("VLAN-001")
             .build();
         

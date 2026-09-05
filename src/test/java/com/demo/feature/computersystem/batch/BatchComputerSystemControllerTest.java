@@ -1,13 +1,10 @@
 package com.demo.feature.computersystem.batch;
 
-import com.demo.feature.computersystem.batch.BatchProperties;
-import com.demo.feature.computersystem.batch.BatchComputerSystemRequest;
 import com.demo.feature.computersystem.ComputerSystemDto;
 import com.demo.feature.computersystem.ComputerSystemService;
 import com.demo.integration.mail.EmailNotificationService;
 import tools.jackson.databind.ObjectMapper;
 
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assertions;
@@ -19,7 +16,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
@@ -73,7 +69,6 @@ class BatchComputerSystemControllerTest {
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
                 .userId(1L)
-                .department("IT")
                 .macAddress("00:1A:2B:3C:4D:5E")
                 .ipAddress("192.168.1.100")
                 .networkName("PROD-NETWORK")
@@ -85,7 +80,6 @@ class BatchComputerSystemControllerTest {
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
                 .userId(2L)
-                .department("IT")
                 .macAddress("00:1A:2B:3C:4D:5F")
                 .ipAddress("192.168.1.101")
                 .networkName("PROD-NETWORK")
@@ -176,7 +170,6 @@ class BatchComputerSystemControllerTest {
                 .manufacturer("Dell")
                 .model("PowerEdge")
                 .userId(1L)
-                .department("IT")
                 .macAddress("00:1A:2B:3C:4D:5E")
                 .ipAddress("192.168.1.100")
                 .networkName("PROD")

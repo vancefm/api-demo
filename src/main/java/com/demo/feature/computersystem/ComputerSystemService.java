@@ -1,12 +1,11 @@
 package com.demo.feature.computersystem;
 
-import com.demo.feature.computersystem.ComputerSystemDto;
-import com.demo.feature.computersystem.ComputerSystemMapper;
+import com.demo.feature.department.DepartmentLinks;
+import com.demo.feature.department.DepartmentService;
 import com.demo.feature.user.User;
 import com.demo.feature.user.UserRepository;
 import com.demo.platform.exception.DuplicateResourceException;
 import com.demo.platform.exception.ResourceNotFoundException;
-import com.demo.feature.computersystem.ComputerSystem;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
+import java.util.List;
 
 /**
  * Service layer for managing computer systems with circuit breaker protection.
@@ -41,6 +41,7 @@ public class ComputerSystemService {
     private static final String NOT_FOUND = " not found";
     private final ComputerSystemRepository repository;
     private final UserRepository userRepository;
+    private final DepartmentService departmentService;
     private final ComputerSystemMapper mapper;
 
     /**
@@ -71,6 +72,7 @@ public class ComputerSystemService {
         User assignedUser = userRepository.findById(dto.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User with id " + dto.getUserId() + NOT_FOUND));
         computerSystem.setSystemUser(assignedUser);
+        setDepartmentLinks(computerSystem, dto.getDepartmentIds());
         ComputerSystem savedSystem = repository.save(computerSystem);
 
         return mapper.toDto(savedSystem);
@@ -135,10 +137,10 @@ public class ComputerSystemService {
     }
 
     /**
-     * Filters computer systems by hostname, department, or user ID with circuit breaker protection.
+     * Filters computer systems by hostname, department ID, or user ID with circuit breaker protection.
      *
      * @param hostname Hostname to filter by
-     * @param department Department to filter by
+     * @param departmentId Department ID to filter by (membership in the department)
      * @param userId User ID to filter by
      * @param pageable Pagination parameters
      * @return Filtered page of computer systems
@@ -147,10 +149,12 @@ public class ComputerSystemService {
     @CircuitBreaker(name = "databaseQuery", fallbackMethod = "filterComputerSystemsFallback")
     public Page<ComputerSystemDto> filterComputerSystems(
             String hostname,
-            String department,
+            Long departmentId,
             Long userId,
             Pageable pageable) {
-        return repository.findByFilters(hostname, department, userId, pageable).map(mapper::toDto);
+        return repository
+                .findAll(ComputerSystemSpecifications.withFilters(hostname, departmentId, userId), pageable)
+                .map(mapper::toDto);
     }
 
     /**
@@ -159,7 +163,7 @@ public class ComputerSystemService {
      */
     public Page<ComputerSystemDto> filterComputerSystemsFallback(
             String hostname,
-            String department,
+            Long departmentId,
             Long userId,
             Pageable pageable,
             CallNotPermittedException ex) {
@@ -200,6 +204,7 @@ public class ComputerSystemService {
         User assignedUser = userRepository.findById(dto.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User with id " + dto.getUserId() + NOT_FOUND));
         computerSystem.setSystemUser(assignedUser);
+        setDepartmentLinks(computerSystem, dto.getDepartmentIds());
 
         ComputerSystem updatedSystem = repository.save(computerSystem);
 
@@ -237,6 +242,26 @@ public class ComputerSystemService {
                                             CallNotPermittedException ex) {
         log.error("Database circuit breaker OPEN: Cannot delete computer system {} - database unavailable", id);
         throw new RuntimeException("Database service temporarily unavailable. Please try again later.");
+    }
+
+    /**
+     * Reconciles the system's department links with the requested IDs. Unknown
+     * IDs fail the call with a 404 via
+     * {@link DepartmentService#resolveDepartments}; null or empty clears them.
+     *
+     * <p>The links are owned by the {@code departmentLinks} collection
+     * ({@code cascade = ALL}, {@code orphanRemoval = true}), so no repository
+     * call is needed — the diff is flushed with the system itself.
+     */
+    private void setDepartmentLinks(ComputerSystem computerSystem, List<Long> departmentIds) {
+        DepartmentLinks.replace(
+            computerSystem.getDepartmentLinks(),
+            ComputerSystemDepartment::getDepartment,
+            departmentService.resolveDepartments(departmentIds),
+            department -> ComputerSystemDepartment.builder()
+                .computerSystem(computerSystem)
+                .department(department)
+                .build());
     }
 
     /**

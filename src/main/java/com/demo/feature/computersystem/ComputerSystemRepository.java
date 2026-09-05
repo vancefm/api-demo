@@ -1,36 +1,56 @@
 package com.demo.feature.computersystem;
 
-import com.demo.feature.computersystem.ComputerSystem;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
+/**
+ * Dynamic filtering is done through {@link JpaSpecificationExecutor} with the
+ * specifications defined in {@link ComputerSystemSpecifications} — prefer
+ * composing specifications over adding new {@code @Query} filter methods.
+ *
+ * <p>Association fetching follows one rule: {@code @EntityGraph} on
+ * single-entity reads, {@code @BatchSize} (declared on the collection itself)
+ * for paged reads. A collection-fetching entity graph combined with pagination
+ * makes Hibernate join the collection and paginate in memory (HHH000104),
+ * loading the entire result set — so paged methods are deliberately left
+ * ungraphed for {@code departmentLinks}.
+ *
+ * <p>Deleting a department does not need anything here: the join entity's
+ * foreign keys are declared {@code ON DELETE CASCADE}, so the database removes
+ * the links.
+ */
 @Repository
-public interface ComputerSystemRepository extends JpaRepository<ComputerSystem, Long> {
+public interface ComputerSystemRepository
+        extends JpaRepository<ComputerSystem, Long>, JpaSpecificationExecutor<ComputerSystem> {
 
+    @Override
+    @EntityGraph(attributePaths = {"systemUser", "departmentLinks", "departmentLinks.department"})
+    Optional<ComputerSystem> findById(Long id);
+
+    @EntityGraph(attributePaths = {"systemUser", "departmentLinks", "departmentLinks.department"})
     Optional<ComputerSystem> findByHostname(String hostname);
 
     Optional<ComputerSystem> findByMacAddress(String macAddress);
 
     Optional<ComputerSystem> findByIpAddress(String ipAddress);
 
-    @Query("SELECT cs FROM ComputerSystem cs WHERE " +
-           "(:hostname IS NULL OR cs.hostname LIKE %:hostname%) AND " +
-           "(:department IS NULL OR cs.department = :department) AND " +
-           "(:userId IS NULL OR cs.systemUser.id = :userId)")
-    Page<ComputerSystem> findByFilters(
-            @Param("hostname") String hostname,
-            @Param("department") String department,
-            @Param("userId") Long userId,
-            Pageable pageable
-    );
+    /**
+     * Paged reads graph only {@code systemUser} — a to-one association, so it
+     * joins without triggering in-memory pagination. {@code departmentLinks} is
+     * left to {@code @BatchSize} for the reason given in the class javadoc.
+     */
+    @Override
+    @EntityGraph(attributePaths = {"systemUser"})
+    Page<ComputerSystem> findAll(Pageable pageable);
 
-    // In future methods be conscious potential of n+1 problem when using JPA
-    // and fetching related entities. A work around for this would be to use
-    // fetch joins or entity graphs.
+    @Override
+    @EntityGraph(attributePaths = {"systemUser"})
+    Page<ComputerSystem> findAll(Specification<ComputerSystem> spec, Pageable pageable);
 }
