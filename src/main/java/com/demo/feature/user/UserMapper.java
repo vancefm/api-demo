@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
+import java.util.stream.Stream;
 
 /**
  * Maps between {@link User} entities and {@link UserDto}.
@@ -32,17 +33,22 @@ public class UserMapper {
         dto.setEmail(entity.getEmail());
         dto.setManagerId(entity.getManager() != null ? entity.getManager().getId() : null);
         // Sorted by id for deterministic JSON output — Set iteration order is undefined.
-        dto.setDepartments(entity.getDepartments().stream()
+        dto.setDepartments(departmentsOf(entity)
             .map(departmentMapper::toDto)
             .sorted(Comparator.comparing(DepartmentDto::getId))
             .toList());
         // Also populated on read so a fetched DTO can be sent back as a PUT body
         // without losing its department associations.
-        dto.setDepartmentIds(entity.getDepartments().stream()
+        dto.setDepartmentIds(departmentsOf(entity)
             .map(Department::getId)
             .sorted()
             .toList());
         return dto;
+    }
+
+    private static Stream<Department> departmentsOf(User entity) {
+        return entity.getDepartmentLinks().stream()
+            .map(UserDepartment::getDepartment);
     }
 
     public User toEntity(UserDto dto) {

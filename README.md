@@ -244,10 +244,14 @@ The application will start on `http://localhost:8080`
 - **name**: Department name (unique, required)
 - **description**: Department description (optional)
 
-Users and computer systems reference departments many-to-many: each may belong to
-zero, one, or many departments (shared ownership). Requests reference departments
-by ID via `departmentIds`; responses include both `departmentIds` and the full
-nested `departments` objects.
+`departments` is a registry table: it holds only the departments that exist and
+carries no references back to its owners. Each owning model links to it through
+its own join table (`user_departments`, `computer_system_departments`), mapped as
+a join entity (`UserDepartment`, `ComputerSystemDepartment`) so both foreign keys
+can declare `ON DELETE CASCADE`. Each owner may belong to zero, one, or many
+departments (shared ownership). Requests reference departments by ID via
+`departmentIds`; responses include both `departmentIds` and the full nested
+`departments` objects.
 
 ### API Endpoints
 
@@ -359,6 +363,10 @@ DELETE /api/v1/departments/{id}
 > **Note:** Deleting a department is never blocked by existing assignments — any
 > users or computer systems that reference it are **silently dissociated** (their
 > `departmentIds`/`departments` simply shrink). There is no orphan check.
+>
+> Dissociation is enforced by `ON DELETE CASCADE` on each join table's
+> `department_id` foreign key, not by application code, so it applies to every
+> owning model automatically — including ones added later.
 
 Department fields on users and computer systems:
 - Requests (create/update) send `"departmentIds": [1, 3]` referencing existing
@@ -1560,12 +1568,16 @@ package, instead of being split across separate domain/application packages.
 feature/
 ├── user/
 │   ├── User.java, UserDto.java, UserMapper.java
+│   ├── UserDepartment.java                 // join entity → department
 │   └── UserRepository.java, UserManagementService.java, UserManagementController.java
 ├── department/
 │   ├── Department.java, DepartmentDto.java, DepartmentMapper.java
+│   ├── DepartmentLinks.java                // reconciles an owner's link collection
+│   ├── DepartmentSpecifications.java       // incl. assignedToDepartment, shared by owners
 │   └── DepartmentRepository.java, DepartmentService.java, DepartmentController.java
 ├── computersystem/
 │   ├── ComputerSystem.java, ComputerSystemDto.java, ComputerSystemMapper.java
+│   ├── ComputerSystemDepartment.java       // join entity → department
 │   ├── ComputerSystemRepository.java, ComputerSystemService.java, ComputerSystemController.java
 │   ├── ComputerSystemMetrics.java
 │   └── batch/
@@ -1638,21 +1650,57 @@ things when forgotten.
 5. Dynamic filtering uses Specifications: extend `JpaSpecificationExecutor` and
    add an `<Entity>Specifications` class — do not add `@Query` filter methods.
 
+### Associating a new model with departments
+
+Nothing needs registering in the department feature — not a call, not a list, not
+an enum. Deletion is enforced by foreign keys, so a new owner type cannot be
+forgotten. Copy the pattern from `ComputerSystemDepartment` / `UserDepartment`:
+
+1. **Join entity** `<Owner>Department extends BaseEntity` in the *owner's* package,
+   mapped to a `<owner>_departments` table with two `@ManyToOne`s — one to the
+   owner, one to `Department` — and `@OnDelete(action = OnDeleteAction.CASCADE)`
+   on **both**. Add a `@UniqueConstraint` on the id pair and an index on
+   `department_id`. The join row is an entity rather than an implicit
+   `@ManyToMany` join table for a specific reason: `@OnDelete` on a many-to-many
+   collection only reaches the FK pointing at the owning table, so cascading the
+   *department* side would otherwise need a hand-written DDL string.
+2. **Collection on the owner**: `@OneToMany(mappedBy = "...", cascade = ALL,
+   orphanRemoval = true)` plus `@BatchSize(size = 50)`, named exactly
+   `departmentLinks` — `DepartmentSpecifications.assignedToDepartment` resolves
+   that name. `orphanRemoval` means link changes flush with the owner, so the
+   join entity needs no repository of its own.
+3. **Create/update**: `DepartmentLinks.replace(...)` reconciles the collection
+   against the requested IDs (see `ComputerSystemService.setDepartmentLinks`). It
+   diffs rather than rebuilding, so surviving links keep their audit timestamps.
+4. **Delete**: nothing to do — the owner-side `ON DELETE CASCADE` removes links.
+5. **Filter**: delegate the `departmentId` predicate to
+   `DepartmentSpecifications.assignedToDepartment(departmentId)`; do not write
+   another `inDepartment` specification.
+
+> **Careful:** the cascades exist only because Hibernate generates the schema
+> (`ddl-auto`). Adopting Flyway means writing `ON DELETE CASCADE` into the
+> migrations, or dissociation silently stops working — `DepartmentCascadeIT`
+> asserts `DELETE_RULE = CASCADE` straight out of `INFORMATION_SCHEMA` to catch
+> exactly that.
+
+### Fetching associations: entity graphs vs. `@BatchSize`
+
+One rule, and getting it backwards is a silent performance bug rather than a
+failure:
+
+- **Single-entity reads** (`findById`, `findByHostname`) → `@EntityGraph`, including
+  the collection paths.
+- **Paged reads** (`findAll(Pageable)`, `findAll(Specification, Pageable)`) → graph
+  only to-one associations. A collection-fetching graph combined with pagination
+  makes Hibernate join the collection and paginate **in memory** (`HHH000104`),
+  loading the entire result set. Collections are batched instead, via
+  `@BatchSize` on the collection itself.
+
+`ComputerSystemDepartmentFetchIT` pins this by asserting the query count for a
+page does not grow with page size.
+
 ### Cross-feature hooks (easy to forget)
 
-- **Department cascade-dissociate**: if the new model has a many-to-many to
-  `Department`, deleting a department must silently drop the associations.
-  That requires BOTH:
-  1. a native `@Modifying @Query` `removeDepartmentAssociations` method on the
-     new model's repository (the join table has no entity mapping, so native
-     SQL is the only way to target it), and
-  2. a call to that method added to `DepartmentService.deleteDepartment` —
-     there is a marker comment at the call site.
-  Without step 2, deleting a department fails with a foreign-key constraint
-  violation for rows in the new join table.
-- **Symmetric rule**: if *other* models hold a many-to-many to the *new* model,
-  its own service `delete` method must implement the same cascade-dissociate
-  pattern (existence check → dissociate each referencing feature → delete).
 - **Resolve associations through services, not repositories**: cross-feature ID
   resolution goes through the owning feature's public service (e.g.
   `DepartmentService.resolveDepartments`), which owns the 404-on-unknown-ID
@@ -1666,8 +1714,9 @@ things when forgotten.
 - Add tests at all four layers: repository `@DataJpaTest`, service unit test,
   controller `@WebMvcTest`, and full integration test (see
   [Test Architecture](#test-architecture)).
-- If the model hooks into `deleteDepartment`, extend `DepartmentServiceTest`'s
-  delete verifications (`verify(...).removeDepartmentAssociations(id)`).
+- If the model associates to departments, extend `DepartmentCascadeIT` to cover
+  its join table in both directions (deleting the department, deleting the owner).
+  There is nothing to assert at the unit level — dissociation is the database's job.
 - Update this README: entity fields, endpoint examples, and test counts.
 - Optional: custom metrics (`app.<domain>.<name>`, see
   [Adding New Metrics](#adding-new-metrics)) and circuit breaker protection for
@@ -1684,7 +1733,8 @@ things when forgotten.
 - Implement distributed tracing with OpenTelemetry (successor to Spring Cloud Sleuth)
 - ~~Add custom metrics collection (Micrometer)~~ ✅ **IMPLEMENTED: Custom metrics via Micrometer**
 - Implement database-level auditing and change tracking
-- Flyway database migration
+- Flyway database migration — the join tables' `ON DELETE CASCADE` foreign keys
+  must be written into the migrations; department dissociation depends on them
 
 ## License
 

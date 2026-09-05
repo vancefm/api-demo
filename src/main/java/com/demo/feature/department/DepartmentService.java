@@ -1,7 +1,5 @@
 package com.demo.feature.department;
 
-import com.demo.feature.computersystem.ComputerSystemRepository;
-import com.demo.feature.user.UserRepository;
 import com.demo.platform.exception.DuplicateResourceException;
 import com.demo.platform.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -28,8 +26,6 @@ public class DepartmentService {
     private static final String NOT_FOUND = " not found";
 
     private final DepartmentRepository repository;
-    private final UserRepository userRepository;
-    private final ComputerSystemRepository computerSystemRepository;
     private final DepartmentMapper mapper;
 
     public DepartmentDto createDepartment(DepartmentDto dto) {
@@ -82,22 +78,19 @@ public class DepartmentService {
     }
 
     /**
-     * Deletes a department, silently dissociating it from every user and
-     * computer system that references it (cascade-dissociate — deletion is
-     * never blocked by existing assignments).
+     * Deletes a department. Deletion is never blocked by existing assignments:
+     * every join entity declares {@code ON DELETE CASCADE} on its
+     * {@code department_id} foreign key, so the database removes the links for
+     * every owner type. Nothing needs registering here when a new owner type is
+     * added, and no owner type can be forgotten.
      */
     public void deleteDepartment(Long id) {
         if (!repository.existsById(id)) {
             throw new ResourceNotFoundException("Department with id " + id + NOT_FOUND);
         }
 
-        // Every feature with a Department many-to-many must be dissociated here;
-        // when adding one, register its removeDepartmentAssociations call below
-        // (see "Adding a New Domain Model" in README.md).
-        userRepository.removeDepartmentAssociations(id);
-        computerSystemRepository.removeDepartmentAssociations(id);
         repository.deleteById(id);
-        log.info("Deleted department with id {} and removed its associations", id);
+        log.info("Deleted department with id {}; its assignments were cascaded by the database", id);
     }
 
     /**

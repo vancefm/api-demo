@@ -1,7 +1,5 @@
 package com.demo.feature.department;
 
-import com.demo.feature.computersystem.ComputerSystemRepository;
-import com.demo.feature.user.UserRepository;
 import com.demo.platform.exception.DuplicateResourceException;
 import com.demo.platform.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,12 +28,6 @@ class DepartmentServiceTest {
     @Mock
     private DepartmentRepository repository;
 
-    @Mock
-    private UserRepository userRepository;
-
-    @Mock
-    private ComputerSystemRepository computerSystemRepository;
-
     private DepartmentService service;
 
     private Department testDepartment;
@@ -43,7 +35,7 @@ class DepartmentServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new DepartmentService(repository, userRepository, computerSystemRepository, new DepartmentMapper());
+        service = new DepartmentService(repository, new DepartmentMapper());
 
         testDepartment = Department.builder()
                 .id(1L)
@@ -140,14 +132,18 @@ class DepartmentServiceTest {
         assertThrows(ResourceNotFoundException.class, () -> service.updateDepartment(99L, testDto));
     }
 
+    /**
+     * Dissociation is not asserted here on purpose: it is enforced by
+     * {@code ON DELETE CASCADE} on each join entity's department FK, so there is
+     * no collaborator left to verify. {@code DepartmentCascadeIT} covers it
+     * against a real schema.
+     */
     @Test
-    void testDeleteDepartment_Success_RemovesAssociations() {
+    void testDeleteDepartment_Success() {
         when(repository.existsById(1L)).thenReturn(true);
 
         service.deleteDepartment(1L);
 
-        verify(userRepository, times(1)).removeDepartmentAssociations(1L);
-        verify(computerSystemRepository, times(1)).removeDepartmentAssociations(1L);
         verify(repository, times(1)).deleteById(1L);
     }
 
@@ -157,8 +153,6 @@ class DepartmentServiceTest {
 
         assertThrows(ResourceNotFoundException.class, () -> service.deleteDepartment(99L));
 
-        verify(userRepository, never()).removeDepartmentAssociations(any());
-        verify(computerSystemRepository, never()).removeDepartmentAssociations(any());
         verify(repository, never()).deleteById(any());
     }
 

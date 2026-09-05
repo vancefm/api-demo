@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
+import java.util.stream.Stream;
 
 /**
  * Maps between {@link ComputerSystem} entities and {@link ComputerSystemDto}.
@@ -36,17 +37,22 @@ public class ComputerSystemMapper {
             .ipAddress(entity.getIpAddress())
             .networkName(entity.getNetworkName())
             // Sorted by id for deterministic JSON output — Set iteration order is undefined.
-            .departments(entity.getDepartments().stream()
+            .departments(departmentsOf(entity)
                 .map(departmentMapper::toDto)
                 .sorted(Comparator.comparing(DepartmentDto::getId))
                 .toList())
             // Also populated on read so a fetched DTO can be sent back as a PUT
             // body without losing its department associations.
-            .departmentIds(entity.getDepartments().stream()
+            .departmentIds(departmentsOf(entity)
                 .map(Department::getId)
                 .sorted()
                 .toList())
             .build();
+    }
+
+    private static Stream<Department> departmentsOf(ComputerSystem entity) {
+        return entity.getDepartmentLinks().stream()
+            .map(ComputerSystemDepartment::getDepartment);
     }
 
     public ComputerSystem toEntity(ComputerSystemDto dto) {

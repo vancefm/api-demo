@@ -212,15 +212,21 @@ class DepartmentIntegrationIT {
         UserDto createdUser = objectMapper.readValue(body, UserDto.class);
 
         // This @Transactional test shares one persistence context across all
-        // requests, unlike production where each request gets its own. Detach
-        // the managed User before the delete so the native join-table delete
-        // doesn't conflict with its stale in-memory departments collection.
+        // requests, unlike production where each request commits its own.
         entityManager.flush();
         entityManager.clear();
 
         // Delete the department — must succeed despite the assignment (cascade-dissociate)
         mockMvc.perform(delete("/api/v1/departments/" + department.getId()))
                 .andExpect(status().isNoContent());
+
+        // Dissociation happens in the database via ON DELETE CASCADE, which is
+        // invisible to the persistence context. Flush so the DELETE actually
+        // reaches the database (firing the cascade), then clear so the re-read
+        // below goes to the database rather than to cached state. In production
+        // the request's own commit does both.
+        entityManager.flush();
+        entityManager.clear();
 
         // Re-fetch the user: the deleted department is silently unlinked
         mockMvc.perform(get("/api/v1/users/" + createdUser.getId()))

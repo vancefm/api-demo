@@ -72,11 +72,15 @@ class ComputerSystemServiceTest {
                 .manufacturer("Dell")
                 .model("PowerEdge R750")
                 .systemUser(testUser)
-                .departments(Set.of(testDepartment))
                 .macAddress("00:1A:2B:3C:4D:5E")
                 .ipAddress("192.168.1.100")
                 .networkName("PROD-NETWORK")
                 .build();
+
+        testComputerSystem.getDepartmentLinks().add(ComputerSystemDepartment.builder()
+                .computerSystem(testComputerSystem)
+                .department(testDepartment)
+                .build());
 
         testDto = ComputerSystemDto.builder()
                 .id(1L)

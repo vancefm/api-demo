@@ -1,5 +1,6 @@
 package com.demo.feature.user;
 
+import com.demo.feature.department.DepartmentLinks;
 import com.demo.feature.department.DepartmentService;
 import com.demo.platform.exception.DuplicateResourceException;
 import com.demo.platform.exception.ResourceNotFoundException;
@@ -9,6 +10,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 /**
  * Service for managing users.
@@ -33,7 +36,7 @@ public class UserManagementService {
         }
 
         User user = userMapper.toEntity(dto);
-        user.setDepartments(departmentService.resolveDepartments(dto.getDepartmentIds()));
+        setDepartmentLinks(user, dto.getDepartmentIds());
 
         if (dto.getManagerId() != null) {
             User manager = userRepository.findById(dto.getManagerId())
@@ -85,7 +88,7 @@ public class UserManagementService {
         }
 
         userMapper.updateEntityFromDto(dto, user);
-        user.setDepartments(departmentService.resolveDepartments(dto.getDepartmentIds()));
+        setDepartmentLinks(user, dto.getDepartmentIds());
 
         if (dto.getManagerId() != null) {
             User manager = userRepository.findById(dto.getManagerId())
@@ -101,6 +104,30 @@ public class UserManagementService {
         return userMapper.toDto(updated);
     }
 
+    /**
+     * Reconciles the user's department links with the requested IDs. Unknown IDs
+     * fail the call with a 404 via
+     * {@link DepartmentService#resolveDepartments}; null or empty clears them.
+     *
+     * <p>The links are owned by the {@code departmentLinks} collection
+     * ({@code cascade = ALL}, {@code orphanRemoval = true}), so no repository
+     * call is needed — the diff is flushed with the user itself.
+     */
+    private void setDepartmentLinks(User user, List<Long> departmentIds) {
+        DepartmentLinks.replace(
+            user.getDepartmentLinks(),
+            UserDepartment::getDepartment,
+            departmentService.resolveDepartments(departmentIds),
+            department -> UserDepartment.builder()
+                .user(user)
+                .department(department)
+                .build());
+    }
+
+    /**
+     * Deletes a user. Its department links are removed by the
+     * {@code ON DELETE CASCADE} foreign key on {@link UserDepartment}.
+     */
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("User with id " + id + " not found"));

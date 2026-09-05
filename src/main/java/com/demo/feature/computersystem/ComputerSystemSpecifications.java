@@ -1,9 +1,6 @@
 package com.demo.feature.computersystem;
 
-import com.demo.feature.department.Department;
-import jakarta.persistence.criteria.Join;
-import jakarta.persistence.criteria.Root;
-import jakarta.persistence.criteria.Subquery;
+import com.demo.feature.department.DepartmentSpecifications;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.util.ArrayList;
@@ -29,7 +26,7 @@ final class ComputerSystemSpecifications {
             specs.add(hostnameContains(hostname));
         }
         if (departmentId != null) {
-            specs.add(inDepartment(departmentId));
+            specs.add(DepartmentSpecifications.assignedToDepartment(departmentId));
         }
         if (userId != null) {
             specs.add(assignedToUser(userId));
@@ -39,21 +36,6 @@ final class ComputerSystemSpecifications {
 
     static Specification<ComputerSystem> hostnameContains(String hostname) {
         return (root, query, cb) -> cb.like(root.get("hostname"), "%" + hostname + "%");
-    }
-
-    /**
-     * Membership in the given department. Uses a correlated EXISTS subquery
-     * rather than a join: a join would fan out one row per associated
-     * department, inflating Page totals.
-     */
-    static Specification<ComputerSystem> inDepartment(Long departmentId) {
-        return (root, query, cb) -> {
-            Subquery<Integer> subquery = query.subquery(Integer.class);
-            Root<ComputerSystem> correlated = subquery.correlate(root);
-            Join<ComputerSystem, Department> department = correlated.join("departments");
-            subquery.select(cb.literal(1)).where(cb.equal(department.get("id"), departmentId));
-            return cb.exists(subquery);
-        };
     }
 
     static Specification<ComputerSystem> assignedToUser(Long userId) {
