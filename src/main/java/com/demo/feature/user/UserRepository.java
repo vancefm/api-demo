@@ -28,13 +28,15 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
 
     @Override
-    @EntityGraph(attributePaths = {"departmentLinks", "departmentLinks.department"})
+    @EntityGraph(attributePaths = {"departmentLinks", "departmentLinks.department",
+        "roleAssignments", "roleAssignments.role", "roleAssignments.department"})
     Optional<User> findById(Long id);
 
     /**
      * Find a user by username.
      */
-    @EntityGraph(attributePaths = {"departmentLinks", "departmentLinks.department"})
+    @EntityGraph(attributePaths = {"departmentLinks", "departmentLinks.department",
+        "roleAssignments", "roleAssignments.role", "roleAssignments.department"})
     Optional<User> findByUsername(String username);
 
     /**

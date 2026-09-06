@@ -8,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -105,6 +107,45 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles ConflictException (HTTP 409).
+     * The operation is refused because of the resource's current state
+     * (e.g. a system role cannot be deleted). Not emailed — it is a client
+     * asking for something the configuration forbids, not a data problem.
+     */
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ProblemDetail> handleConflict(
+            ConflictException ex,
+            HttpServletRequest request) {
+
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+        problem.setTitle("Conflict");
+        problem.setDetail(ex.getMessage());
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("timestamp", Instant.now());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+    }
+
+    /**
+     * Handles InvalidRequestException (HTTP 400).
+     * Semantic validation failures raised by services (e.g. a permission for an
+     * unknown entity or field). Client mistake — not emailed.
+     */
+    @ExceptionHandler(InvalidRequestException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidRequest(
+            InvalidRequestException ex,
+            HttpServletRequest request) {
+
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        problem.setTitle("Invalid Request");
+        problem.setDetail(ex.getMessage());
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("timestamp", Instant.now());
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
+    }
+
+    /**
      * Handles MethodArgumentNotValidException (HTTP 400).
      * Request validation failed (missing fields, invalid types, validation rules).
      *
@@ -153,6 +194,50 @@ public class GlobalExceptionHandler {
 
         // Don't email validation errors - these are client mistakes, not server issues
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
+    }
+
+    /**
+     * Handles AccessDeniedException (HTTP 403).
+     * The caller is authenticated but their role assignments do not permit the
+     * operation (or one of the fields it touches). Thrown by the RBAC layer from
+     * inside the service, so it surfaces here rather than in the filter chain.
+     *
+     * Not emailed: a denial is the system working as configured, not an error.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ProblemDetail> handleAccessDenied(
+            AccessDeniedException ex,
+            HttpServletRequest request) {
+
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.FORBIDDEN);
+        problem.setTitle("Forbidden");
+        problem.setDetail(ex.getMessage());
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("timestamp", Instant.now());
+
+        log.debug("Access denied for {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
+    }
+
+    /**
+     * Handles AuthenticationException (HTTP 401) raised after the filter chain,
+     * e.g. a service asking for the current user when there is none. The
+     * filter-level 401 is produced by ProblemDetailAuthenticationEntryPoint
+     * instead; this is the safety net.
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ProblemDetail> handleAuthentication(
+            AuthenticationException ex,
+            HttpServletRequest request) {
+
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.UNAUTHORIZED);
+        problem.setTitle("Unauthorized");
+        problem.setDetail(ex.getMessage());
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("timestamp", Instant.now());
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
     }
 
     /**
