@@ -8,6 +8,7 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
   - [Architecture \& Design](#architecture--design)
     - [API Versioning](#api-versioning)
       - [Current Implementation](#current-implementation)
+    - [Authentication (embedded LDAP)](#authentication-embedded-ldap)
     - [Error Handling](#error-handling)
       - [Error Codes](#error-codes)
   - [Getting Started](#getting-started)
@@ -16,6 +17,8 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
     - [Run](#run)
   - [API Documentation](#api-documentation)
     - [ComputerSystem Entity Fields](#computersystem-entity-fields)
+    - [User Entity Fields](#user-entity-fields)
+    - [Department Entity Fields](#department-entity-fields)
     - [API Endpoints](#api-endpoints)
     - [Create Computer System](#create-computer-system)
     - [Get All Computer Systems (with pagination)](#get-all-computer-systems-with-pagination)
@@ -24,6 +27,19 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
     - [Filter Computer Systems](#filter-computer-systems)
     - [Update Computer System](#update-computer-system)
     - [Delete Computer System](#delete-computer-system)
+  - [Users API](#users-api)
+  - [Departments API](#departments-api)
+  - [Role-Based Access Control](#role-based-access-control)
+    - [Concepts](#concepts)
+    - [Data model](#data-model)
+    - [Decision rules](#decision-rules)
+    - [Field-level behaviour](#field-level-behaviour)
+    - [Roles API](#roles-api)
+    - [Role Assignments API](#role-assignments-api)
+    - [First-time use](#first-time-use)
+    - [Worked example: Department User](#worked-example-department-user)
+    - [Adding a new secured entity](#adding-a-new-secured-entity)
+    - [Design choices you may want to revisit](#design-choices-you-may-want-to-revisit)
   - [Query Features](#query-features)
     - [Pagination and Sorting](#pagination-and-sorting)
     - [Filtering](#filtering)
@@ -116,10 +132,10 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
 - **Filtering**: Advanced filtering capabilities
 - **Sorting**: Customizable sorting by any field
 - **Response Compression**: GZIP compression for improved performance and bandwidth savings
+- **Authentication**: HTTP Basic against an embedded LDAP directory (no passwords in the app)
+- **Role-Based Access Control**: Dynamic roles of `entity:field` CRUD permissions, granted per
+  Department:Role pair, with field-level response masking and department-scoped lists
 - **Logging**: Comprehensive logging at service and controller levels
-- **Constructor Injection**: Dependency injection via constructors
-- **Database**: H2 in-memory database with JPA/Hibernate ORM
-- **Testing**: Unit and integration tests with JUnit 5 and Mockito
 - **Constructor Injection**: Dependency injection via constructors
 - **Database**: H2 in-memory database with JPA/Hibernate ORM
 - **Testing**: Unit and integration tests with JUnit 5 and Mockito
@@ -133,6 +149,8 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
 - **Hibernate ORM 7**: JPA implementation
 - **H2 Database**: In-memory relational database
 - **Jackson 3** (`tools.jackson`): JSON serialization (the Spring Boot 4 default)
+- **Spring Security 7** + **Spring LDAP**: HTTP Basic authentication bound against LDAP
+- **UnboundID LDAP SDK**: the embedded, in-process LDAP directory
 - **SpringDoc OpenAPI 3.0.3**: Swagger/OpenAPI documentation
 - **Lombok**: Reduce boilerplate code
 - **JUnit 5**: Testing framework
@@ -152,6 +170,32 @@ All endpoints use the `/api/v1/` prefix:
 - `GET /api/v1/computer-systems/{id}`
 - `PUT /api/v1/computer-systems/{id}`
 - `DELETE /api/v1/computer-systems/{id}`
+
+### Authentication (embedded LDAP)
+
+Every `/api/**` request must carry **HTTP Basic** credentials. They are checked by binding as
+`uid=<username>,ou=people` against an **embedded LDAP server** (UnboundID, in-process) that the
+application starts from `src/main/resources/ldap-users.ldif`. The directory is the only credential
+store: the `users` table holds no passwords, the API has no password field, and the application
+never writes to the directory.
+
+- Configuration lives under `app.ldap.*` in `application.yml` (base DN, LDIF location, port —
+  `LDAP_PORT=8389` pins a port so an LDAP browser can connect while the app runs).
+- LDAP **groups are ignored**. Authorization is decided by the role assignments stored in the
+  database — see [Role-Based Access Control](#role-based-access-control).
+- On a user's **first successful login** a `users` row is provisioned from the directory entry
+  (`uid`, `mail`, `givenName`, `sn`) with no role assignments; the row and the directory entry are
+  linked by username.
+- Missing or wrong credentials return `401` as an RFC 9457 problem with a `WWW-Authenticate: Basic`
+  challenge. Actuator, Swagger UI, the OpenAPI document and the H2 console stay open.
+- The API is stateless (no session, no CSRF token).
+
+The demo directory ships with `admin`/`admin123` (the bootstrap SuperAdmin) and `user1`/`password1`,
+`user2`/`password2`, `user3`/`password3` (no grants); the full table is in the LDIF header.
+
+```bash
+curl -u admin:admin123 http://localhost:8080/api/v1/departments
+```
 
 ### Error Handling
 
@@ -207,6 +251,10 @@ When validation fails, the `detail` field includes item-level error information:
 
 ## Getting Started
 
+> Every `/api/**` call needs HTTP Basic credentials; start with `admin`/`admin123`. What a fresh
+> deployment and a fresh login look like is spelled out in
+> [First-time use](#first-time-use).
+
 ### Prerequisites
 - Java 25 or higher (LTS version)
 - Maven 3.9.0 or higher
@@ -237,6 +285,22 @@ The application will start on `http://localhost:8080`
 - **macAddress**: MAC address (unique, required, validated)
 - **ipAddress**: IP address (unique, required, validated)
 - **networkName**: Network name (required)
+
+### User Entity Fields
+
+- **id**: Unique identifier (auto-generated)
+- **username**: Login name (unique, required) — links the row to the LDAP entry `uid=<username>,ou=people`
+- **email**: Email address (required)
+- **firstName**: Given name (optional)
+- **lastName**: Family name (optional)
+- **managerId**: ID of the user's manager (optional)
+- **departmentIds**: IDs of the departments the user belongs to (optional, zero or more)
+- **departments**: Those departments as full objects (populated on read)
+
+There is **no password field**. Credentials live only in the LDAP directory; the
+application never stores, sets or checks a password itself. A row is created either
+through `POST /api/v1/users` or automatically on a directory user's first login
+(see [Authentication](#authentication-embedded-ldap)).
 
 ### Department Entity Fields
 
@@ -314,6 +378,59 @@ Content-Type: application/json
 DELETE /api/v1/computer-systems/{id}
 ```
 
+## Users API
+
+Full CRUD for users at `/api/v1/users`.
+
+### Create User
+```
+POST /api/v1/users
+Content-Type: application/json
+
+{
+  "username": "jane.doe",
+  "email": "jane.doe@example.com",
+  "firstName": "Jane",
+  "lastName": "Doe",
+  "departmentIds": [1],
+  "managerId": 2
+}
+```
+
+### Get All Users (with pagination)
+```
+GET /api/v1/users?page=0&size=20&sort=username,asc
+```
+
+### Get User by ID
+```
+GET /api/v1/users/{id}
+```
+
+### Filter Users
+```
+GET /api/v1/users/filter?username=jane&email=example.com&departmentId=1&managerId=2&page=0&size=20
+```
+
+### Update User
+```
+PUT /api/v1/users/{id}
+Content-Type: application/json
+
+{
+  "username": "jane.doe",
+  "email": "jane.doe@example.com",
+  "firstName": "Jane",
+  "lastName": "Doe-Smith",
+  "departmentIds": [1, 3]
+}
+```
+
+### Delete User
+```
+DELETE /api/v1/users/{id}
+```
+
 ## Departments API
 
 Full CRUD for departments at `/api/v1/departments`.
@@ -384,6 +501,237 @@ Department fields on users and computer systems:
 }
 ```
 
+## Role-Based Access Control
+
+Authorization is **data, not code**: roles and the permissions they carry are rows managed through
+the API, and a user's access is the union of the Department:Role pairs granted to them. Nothing about
+a role or a grant is hard-wired except the seeded `SuperAdmin` (see [First-time use](#first-time-use)).
+
+### Concepts
+
+- **Secured entity** — a kind of thing that can be protected: `User`, `ComputerSystem`,
+  `Department`, `Role`, `RoleAssignment`. Each is registered by its feature with the DTO whose
+  JSON property names are the legal **field** names (clients grant what clients see).
+- **Permission** — one `entity : field → operation` triple, where operation is `CREATE`, `READ`,
+  `UPDATE` or `DELETE`. `*` is a wildcard for entity or field. `DELETE` is always entity-wide.
+- **Role** — a named set of permissions. Roles carry no notion of *who* or *where*.
+- **Role assignment** — *user* holds *role* in *department*. A grant with **no department is
+  global** and applies everywhere; a **department-scoped** grant applies only to objects that belong
+  to that department. A user may hold any number of grants.
+- **Scope of an object** — the departments it belongs to: a user's or computer system's
+  `departmentIds`; a department is its own scope; a role has no scope (only global grants reach
+  it); a role assignment's scope is the department it hands out.
+
+### Data model
+
+| Table | Columns | Notes |
+|---|---|---|
+| `roles` | `name` (unique), `description`, `system_role` | `system_role` marks seeded roles: not renamable, deletable or re-permissionable |
+| `permissions` | `role_id`, `entity_name`, `field_name`, `operation` | unique per role; owned by the role (`orphanRemoval`), FK `ON DELETE CASCADE` |
+| `role_assignments` | `user_id`, `role_id`, `department_id` (nullable) | unique triple; all three FKs `ON DELETE CASCADE` |
+
+Deleting a role, a user or a department therefore silently removes the grants that referenced it —
+the same "deletion is never blocked" rule the department join tables follow. `DepartmentCascadeIT`,
+`RoleRepositoryIT` and `RoleAssignmentRepositoryIT` assert the cascades straight out of
+`INFORMATION_SCHEMA`.
+
+### Decision rules
+
+For every request the caller's grants are loaded once (`RoleAssignmentRepository.findByUserId`,
+cached per request) and flattened into `EffectivePermissions`. A service then asks `AccessControl`:
+
+1. **Entity access** — may the caller perform *op* on *entity* objects with scope *S*? Yes if some
+   grant has a permission for *op* whose entity matches (or is `*`) **and** whose assignment is
+   global or scoped to a department in *S*. An **empty scope needs a global grant**. A field-level
+   permission is enough for entity access (someone who may read `User.firstName` may read users —
+   and sees only that field).
+2. **Field access** — as above, plus the permission's field must match (or be `*`).
+3. **Lists** — paged reads are restricted with a Specification to the departments the caller may
+   READ (`DepartmentSpecifications.assignedToAnyDepartment`, or the department's own id). A global
+   READ grant lifts the restriction; no grant yields an **empty page, not a 403**. Roles have no
+   scope, so listing them without a global grant is a 403.
+4. **Denials** are Spring Security `AccessDeniedException`s mapped to an RFC 9457 **403** whose
+   `detail` names the operation, entity, offending fields and scope, e.g.
+   `Not permitted to UPDATE User field(s) [email] in department(s) [3]`.
+
+Enforcement lives in the **service layer** (`UserManagementService`, `DepartmentService`,
+`ComputerSystemService`, `RoleService`, `RoleAssignmentService`), where the object and its
+departments are known, following one explicit pattern:
+
+```
+create : requireAccess(E, CREATE, scope(dto)); requireFieldAccess(E, CREATE, suppliedFields(dto)); save; filterReadable
+read   : load; requireAccess(E, READ, scope); filterReadable
+list   : findAll(filters AND readScope()); map; filterReadable each
+update : load; scope = current ∪ requested; requireAccess(E, UPDATE, scope)
+         retainUnreadable(stored, incoming); requireFieldAccess(E, UPDATE, changedFields(stored, incoming)); apply
+delete : load; requireAccess(E, DELETE, scope); delete
+```
+
+### Field-level behaviour
+
+- **READ**: fields the caller may not read are **omitted** from the JSON (the DTOs carry
+  `@JsonInclude(NON_NULL)`; the RBAC layer nulls the property). `id` is always present. The same
+  masking applies to list items and to the bodies returned by create/update.
+- **UPDATE**: a field counts as written only if its submitted value **differs** from the stored one,
+  so a GET-then-PUT round trip from a narrow role is legal. Fields the caller **cannot read are
+  ignored on write** and keep their stored value — the caller never saw them, so a missing or null
+  value in the body is not a change. Consequences: to update a field a role needs **both READ and
+  UPDATE** on it (UPDATE without READ is inert), and because `UserDto`/`ComputerSystemDto` mark
+  some fields required, a role that may update an entity must be able to read that entity's
+  required fields or the PUT fails validation (400) before it reaches the service.
+- **CREATE**: every non-null, non-empty field the client supplies must be covered by a CREATE
+  permission (or `field = "*"`).
+- **DELETE**: entity-level only.
+- Read-only derived properties (`departments`, `roleAssignments`, marked
+  `@Schema(accessMode = READ_ONLY)`) are never treated as writes.
+
+### Roles API
+
+Needs a **global** grant on `Role`. Changing permissions is `UPDATE` of `Role.permissions`.
+
+```
+GET    /api/v1/roles                                   paged list
+POST   /api/v1/roles                                   { name, description, permissions?: [...] }
+GET    /api/v1/roles/{id}
+PUT    /api/v1/roles/{id}                              name/description only
+DELETE /api/v1/roles/{id}                              409 for system roles; cascades assignments
+GET    /api/v1/roles/{id}/permissions
+PUT    /api/v1/roles/{id}/permissions                  bare array — makes the set exactly this list
+POST   /api/v1/roles/{id}/permissions                  { entity, field?, operation }   (field defaults to "*")
+DELETE /api/v1/roles/{id}/permissions/{permissionId}
+```
+
+A permission naming an unknown entity or field is rejected with **400** listing the known ones.
+
+### Role Assignments API
+
+Scoped to the department being granted; a grant with no department needs a global permission on
+`RoleAssignment`. Listing returns only the grants the caller may read.
+
+```
+GET    /api/v1/users/{userId}/role-assignments
+POST   /api/v1/users/{userId}/role-assignments         { roleId, departmentId? }   (omit for global)
+DELETE /api/v1/users/{userId}/role-assignments/{assignmentId}
+```
+
+A user's grants are also visible read-only as `roleAssignments` on `GET /api/v1/users/{id}`.
+
+### First-time use
+
+**Who can log in.** Any `uid` under `ou=people` in `src/main/resources/ldap-users.ldif`, with HTTP
+Basic. Wrong or missing credentials return `401` (RFC 9457 body, `WWW-Authenticate: Basic`).
+
+| username | password | grants after a fresh start |
+|---|---|---|
+| `admin` | `admin123` | `SuperAdmin`, globally (seeded) |
+| `user1` | `password1` | none |
+| `user2` | `password2` | none |
+| `user3` | `password3` | none |
+
+**What startup seeds.** `RbacBootstrap` runs once the application is ready and, idempotently,
+creates the locked `SuperAdmin` role (`*`/`*` for every operation) and the `users` row for
+`app.rbac.bootstrap.username` (default `admin`) with one **global** grant of it. Change the
+bootstrap user with `RBAC_BOOTSTRAP_USERNAME`; it must exist in the LDIF or nobody has full rights.
+This is the only grant not created through the API.
+
+**What a first-time, non-admin login gets.** A `users` row is provisioned from the directory entry
+(`uid`, `mail`, `givenName`, `sn`) with **no grants**. Concretely, for `user1`:
+
+| Request | Result |
+|---|---|
+| `GET /api/v1/users`, `/computer-systems`, `/departments` | `200`, **empty page** |
+| any `GET .../{id}` — including their **own** user record | `403` |
+| any `POST`, `PUT`, `DELETE` | `403` |
+| `GET /api/v1/roles`, any role-assignment call | `403` |
+| `/actuator/**`, `/swagger-ui.html`, `/v3/api-docs`, `/h2-console` | open to everyone, logged in or not |
+
+**Unlocking a new user** takes three admin calls (as `-u admin:admin123`):
+
+```bash
+# 1. Create a role (or reuse one) — here the Department User role
+curl -u admin:admin123 -X POST http://localhost:8080/api/v1/roles \
+  -H 'Content-Type: application/json' -d '{
+    "name": "Department User",
+    "permissions": [
+      {"entity":"User","field":"username", "operation":"READ"},
+      {"entity":"User","field":"email",    "operation":"READ"},
+      {"entity":"User","field":"firstName","operation":"READ"},
+      {"entity":"User","field":"lastName", "operation":"READ"},
+      {"entity":"User","field":"firstName","operation":"UPDATE"},
+      {"entity":"User","field":"lastName", "operation":"UPDATE"}
+    ]}'                                                   # → 201, note the role id
+
+# 2. Make sure the user has a row and is in the department (user1 logs in once, or create it)
+curl -u admin:admin123 -X PUT http://localhost:8080/api/v1/users/<user1 id> \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"user1","email":"user1@example.com","departmentIds":[<IT id>]}'
+
+# 3. Grant Department:Role
+curl -u admin:admin123 -X POST http://localhost:8080/api/v1/users/<user1 id>/role-assignments \
+  -H 'Content-Type: application/json' -d '{"roleId": <role id>, "departmentId": <IT id>}'
+```
+
+From then on `user1` can list IT users (seeing only `id`, `username`, `email`, `firstName`,
+`lastName`), fetch them by id, and change their first and last names; everything else stays `403`.
+
+### Worked example: Department User
+
+`UserRbacIT` runs exactly this scenario. With the role above granted to `user1` for IT:
+
+```bash
+curl -u user1:password1 http://localhost:8080/api/v1/users
+# 200 — only IT users; each item has id/username/email/firstName/lastName and nothing else
+
+curl -u user1:password1 http://localhost:8080/api/v1/users/<bob id>     # bob has no department
+# 403 "Not permitted to READ User (requires a global grant)"
+
+curl -u user1:password1 -X PUT http://localhost:8080/api/v1/users/<alice id> \
+  -H 'Content-Type: application/json' \
+  -d '{"id":<alice id>,"username":"alice","email":"alice@example.com","firstName":"Alice","lastName":"Jones"}'
+# 200 — lastName changed; alice's departments and manager (unseen by user1) are untouched
+
+# same body with a different email:
+# 403 "Not permitted to UPDATE User field(s) [email] in department(s) [<IT id>]"
+
+curl -u user1:password1 -X POST http://localhost:8080/api/v1/roles -d '{"name":"x"}' ...
+# 403 "Not permitted to CREATE Role (requires a global grant)"
+```
+
+`SuperAdmin` (`admin`) is unaffected: every entity, every field, everywhere.
+
+### Adding a new secured entity
+
+1. Declare a `SecuredEntity` bean in the feature package (see `UserSecuredEntity`):
+   `SecuredEntity.departmental(NAME, MyDto.class, MyDto::getDepartmentIds)` for departmental
+   models, `SecuredEntity.global(...)` for ones only a global grant should reach, or a custom
+   scope function. The registry picks it up; permission validation and field names follow from
+   the DTO.
+2. Inject `AccessControl` into the service and apply the pattern under
+   [Decision rules](#decision-rules): `scopeOf`, `requireAccess`, `requireFieldAccess`,
+   `readableDepartments` (for lists), `retainUnreadable` + `FieldDiff.changedFields` (for updates),
+   `filterReadable` (for every response).
+3. Put `@JsonInclude(JsonInclude.Include.NON_NULL)` on the DTO and mark derived, read-only
+   properties `@Schema(accessMode = READ_ONLY)`; use wrapper types (`Boolean`, not `boolean`) so
+   they can be masked.
+4. If the model is departmental, its paged repository reads must accept a `Specification` so the
+   read scope can be appended.
+5. Add an `<Entity>RbacIT` covering: scoped list, masked fields, 403 outside the scope, the
+   GET-then-PUT round trip, and a denied field change.
+
+### Design choices you may want to revisit
+
+- **No default role on provisioning.** A directory user who logs in for the first time can do
+  nothing until an administrator grants a role. If a baseline is wanted, the natural hook is
+  `RbacBootstrap`/`UserManagementService.findOrProvision` (e.g. an `app.rbac.default-role`).
+- **No self scope.** Users cannot read or edit their own record unless a grant reaches it. A
+  "self" scope would slot into `AccessControl`'s target resolution.
+- **LDAP groups are ignored.** Group membership could be mapped onto role assignments at login if
+  the directory is meant to drive authorization.
+- **Department-scoped grant managers can grant any role within their department**, including
+  wildcard roles — the wildcard is still bounded by the department.
+- **Business exceptions and the circuit breaker.** `AccessDeniedException` and the 400/404/409
+  exceptions are on the `databaseQuery` breaker's `ignoreExceptions` list so denials cannot open it.
+
 ## Query Features
 
 ### Pagination and Sorting
@@ -447,23 +795,29 @@ GET /api/v1/departments/filter?name=IT
 ### Running Tests
 
 ```bash
-# Run all tests
+# Unit tests only (*Test — surefire)
 mvn test
 
-# Run specific test class
-mvn test -Dtest=ComputerSystemIntegrationTest
+# Unit + integration tests (*IT — failsafe); this is the build gate
+mvn verify
+
+# One integration test class
+mvn verify -Dtest=NONE -Dsurefire.failIfNoSpecifiedTests=false -Dit.test=UserRbacIT
 
 # Run with coverage
 mvn test jacoco:report
 ```
 
-Test Summary:
-- **Total Tests**: 40 (all passing ✅)
-- **Repository Tests**: 7 (Data access layer - `@DataJpaTest`)
-- **Service Tests**: 10 (Business logic - mocked dependencies)
-- **Controller Tests**: 7 (REST endpoints - mocked services)
-- **Integration Tests**: 6 (Full application - real database with `@Transactional`)
-- **Batch Controller Tests**: 10 (Batch operations)
+Test Summary (`mvn clean verify`):
+- **Total Tests**: 247 (all passing ✅)
+- **Unit tests** (`*Test`, surefire): 157 — service tests with mocked repositories and a mocked
+  `AccessControl`, `@WebMvcTest` controller tests, and pure tests of the RBAC engine
+  (`EffectivePermissionsTest`, `FieldDiffTest`, `FieldAccessFilterTest`, `AccessControlTest`,
+  `SecuredEntityRegistryTest`)
+- **Integration tests** (`*IT`, failsafe): 90 — `@DataJpaTest` repository/cascade tests,
+  `@SpringBootTest` API tests authenticated against the embedded LDAP server, and the RBAC
+  scenarios (`UserRbacIT`, `DepartmentRbacIT`, `ComputerSystemRbacIT`, `RbacManagementIT`,
+  `AuthenticationIT`, `RbacBootstrapIT`)
 
 ### Test Architecture
 
@@ -1392,6 +1746,22 @@ spec:
 
 ## Recent Updates (June 2026)
 
+### Embedded-LDAP Authentication and Configurable RBAC (September 2026)
+- **Authentication is back**: HTTP Basic, bind-checked against an **embedded UnboundID LDAP server**
+  loaded from `ldap-users.ldif` (`app.ldap.*`). The application holds no passwords — the `passwordHash`
+  column is gone and there is no password field on the API. A directory user's first login provisions
+  their `users` row (no grants). LDAP groups are ignored.
+- **Role-Based Access Control**: roles are dynamic sets of `entity:field` CRUD permissions
+  (`/api/v1/roles`), granted to users per Department:Role pair
+  (`/api/v1/users/{id}/role-assignments`). Enforcement in the service layer masks unreadable fields
+  (omitted from JSON via `@JsonInclude(NON_NULL)`), scopes lists to readable departments, diffs updates
+  field by field, and secures the RBAC endpoints themselves. A locked `SuperAdmin` role and the `admin`
+  user's global grant are seeded at startup (`app.rbac.bootstrap.*`). See
+  [Role-Based Access Control](#role-based-access-control) and [First-time use](#first-time-use).
+- `User` gained `firstName`/`lastName`; new 400/403/409 problem types (`InvalidRequestException`,
+  `AccessDeniedException`, `ConflictException`); business exceptions are excluded from the
+  `databaseQuery` circuit breaker's failure count.
+
 ### Auth & Rate-Limiting Overhaul (branch `overhaul/auth-features`)
 - **Removed the authentication & authorization implementation** pending a rebuild: JWT signing/JWKS, persistent API tokens, Active Directory / embedded-LDAP login, the database-driven RBAC model (roles, permissions, role-permissions, field-level permissions), and the associated controllers, filters, and startup seeding were all deleted.
 - **`SecurityConfig` is now a minimal permit-all stub** (`@EnableWebSecurity` + a single `SecurityFilterChain` that permits every request). **The API is currently open** — no login, tokens, or role checks. The Spring Security / LDAP / JWT dependencies remain declared in `pom.xml` for the rebuild.
@@ -1584,14 +1954,23 @@ feature/
 │       ├── BatchComputerSystemRequest.java, BatchComputerSystemResponse.java
 │       ├── BatchComputerSystemController.java
 │       └── BatchProperties.java
+│   └── UserSecuredEntity.java              // registers "User" with the RBAC layer
 └── security/
-    └── config/           — SecurityConfig (minimal permit-all stub; auth pending overhaul)
+    ├── config/SecurityConfig.java          // HTTP Basic on /api/**, stateless
+    ├── ldap/                               // EmbeddedLdapConfig, LdapProperties (app.ldap.*)
+    ├── auth/                               // UserPrincipal, CurrentUser, AppUserDetailsContextMapper (JIT provisioning),
+    │                                       //   ProblemDetailAuthenticationEntryPoint (401 as RFC 9457)
+    └── rbac/
+        ├── Role, Permission, Operation, RoleDto, PermissionDto, RoleMapper, RoleRepository
+        ├── RoleService, RoleController                    // /api/v1/roles
+        ├── RoleAssignment, RoleAssignmentDto, RoleAssignmentMapper, RoleAssignmentRepository
+        ├── RoleAssignmentService, RoleAssignmentController // /api/v1/users/{id}/role-assignments
+        ├── SecuredEntity, SecuredEntityRegistry          // extensibility point
+        ├── AccessControl, EffectivePermissions, FieldDiff, FieldAccessFilter   // the decision engine
+        └── RbacBootstrap, RbacProperties, RbacSecuredEntities                 // seed + app.rbac.*
 ```
 
-> **Note:** Authentication and authorization were removed pending an overhaul (see the
-> `overhaul/auth-features` branch). The `security` package currently holds only a minimal
-> `SecurityConfig` that permits all requests; the API is open. The Spring Security / LDAP /
-> JWT dependencies remain declared in `pom.xml` for the rebuild.
+(`ComputerSystemSecuredEntity` and `DepartmentSecuredEntity` play the same role in their packages.)
 
 **Pattern**: entities/DTOs may reference across features directly (e.g. `ComputerSystem`
 referencing `User`), but repositories and internal helpers should stay package-private —
@@ -1626,7 +2005,8 @@ platform/
 │   ├── OpenApiConfig.java, MetricsConfiguration.java, JpaConfig.java
 └── exception/
     ├── DuplicateResourceException.java, ResourceNotFoundException.java
-    └── ErrorResponse.java, GlobalExceptionHandler.java
+    ├── ConflictException.java (409), InvalidRequestException.java (400)
+    └── ErrorResponse.java, GlobalExceptionHandler.java   // also maps AccessDeniedException → 403
 ```
 
 ## Adding a New Domain Model
@@ -1708,12 +2088,17 @@ page does not grow with page size.
 - **Duplicate/uniqueness checks** in the service throw
   `DuplicateResourceException` / `ResourceNotFoundException` so
   `GlobalExceptionHandler` maps them to RFC 9457 responses.
+- **Access control**: register a `SecuredEntity` bean and call `AccessControl` from the
+  service — see [Adding a new secured entity](#adding-a-new-secured-entity). Without it the
+  new endpoints are reachable by any authenticated user.
 
 ### Tests & docs
 
 - Add tests at all four layers: repository `@DataJpaTest`, service unit test,
   controller `@WebMvcTest`, and full integration test (see
-  [Test Architecture](#test-architecture)).
+  [Test Architecture](#test-architecture)). `@SpringBootTest` classes should
+  `@Import(AsAdminMockMvc.class)` so requests authenticate as `admin`; use
+  `AsAdminMockMvc.asUser(...)` per request to test as someone else.
 - If the model associates to departments, extend `DepartmentCascadeIT` to cover
   its join table in both directions (deleting the department, deleting the owner).
   There is nothing to assert at the unit level — dissociation is the database's job.
@@ -1724,7 +2109,8 @@ page does not grow with page size.
 
 ## Ideas for future Enhancements
 
-- Rebuild authentication and authorization (overhaul in progress on `overhaul/auth-features`)
+- ~~Rebuild authentication and authorization~~ ✅ **IMPLEMENTED: embedded-LDAP authentication and database-driven RBAC**
+- RBAC follow-ups: default role on provisioning, a "self" scope, mapping LDAP groups to role assignments
 - Add caching layer (Redis) for frequently accessed data
 - Implement audit logging for all operations
 - Implement soft deletes for data recovery

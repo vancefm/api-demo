@@ -1,5 +1,6 @@
 package com.demo.feature.user;
 
+import com.demo.feature.security.rbac.RoleAssignment;
 import com.demo.platform.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -15,7 +16,12 @@ import java.util.Set;
 
 /**
  * Entity representing a user in the system.
- * Users have a role that determines their permissions.
+ *
+ * <p>Holds the profile and (through the RBAC feature) the role assignments of a
+ * caller. It deliberately holds <em>no credentials</em>: authentication is done
+ * by binding against the embedded LDAP directory, and the row is linked to the
+ * directory entry by {@code username}. A row may be created through the API or
+ * provisioned automatically on a user's first login.
  */
 @Entity
 @Table(name = "users")
@@ -32,8 +38,11 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 255)
     private String email;
 
-    @Column(nullable = true, length = 255)
-    private String passwordHash;
+    @Column(length = 100)
+    private String firstName;
+
+    @Column(length = 100)
+    private String lastName;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "manager_id")
@@ -52,5 +61,15 @@ public class User extends BaseEntity {
     @BatchSize(size = 50)
     @Builder.Default
     private Set<UserDepartment> departmentLinks = new HashSet<>();
+
+    /**
+     * Department:Role grants. Read-only from this side — grants are created and
+     * revoked through {@code RoleAssignmentService} and removed by the database
+     * ({@code ON DELETE CASCADE}) when the user, role or department goes away.
+     */
+    @OneToMany(mappedBy = "user")
+    @BatchSize(size = 50)
+    @Builder.Default
+    private Set<RoleAssignment> roleAssignments = new HashSet<>();
 
 }

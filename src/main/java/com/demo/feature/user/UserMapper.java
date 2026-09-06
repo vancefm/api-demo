@@ -3,6 +3,8 @@ package com.demo.feature.user;
 import com.demo.feature.department.Department;
 import com.demo.feature.department.DepartmentDto;
 import com.demo.feature.department.DepartmentMapper;
+import com.demo.feature.security.rbac.RoleAssignmentDto;
+import com.demo.feature.security.rbac.RoleAssignmentMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -14,13 +16,15 @@ import java.util.stream.Stream;
  *
  * Note: The manager and department relationships require database lookups, so
  * toEntity and updateEntityFromDto do not set them. The service layer is
- * responsible for resolving and setting those entities.
+ * responsible for resolving and setting those entities. Role assignments are
+ * read-only here; they are managed through {@code RoleAssignmentService}.
  */
 @Component
 @RequiredArgsConstructor
 public class UserMapper {
 
     private final DepartmentMapper departmentMapper;
+    private final RoleAssignmentMapper roleAssignmentMapper;
 
     public UserDto toDto(User entity) {
         if (entity == null) {
@@ -31,6 +35,8 @@ public class UserMapper {
         dto.setId(entity.getId());
         dto.setUsername(entity.getUsername());
         dto.setEmail(entity.getEmail());
+        dto.setFirstName(entity.getFirstName());
+        dto.setLastName(entity.getLastName());
         dto.setManagerId(entity.getManager() != null ? entity.getManager().getId() : null);
         // Sorted by id for deterministic JSON output — Set iteration order is undefined.
         dto.setDepartments(departmentsOf(entity)
@@ -42,6 +48,10 @@ public class UserMapper {
         dto.setDepartmentIds(departmentsOf(entity)
             .map(Department::getId)
             .sorted()
+            .toList());
+        dto.setRoleAssignments(entity.getRoleAssignments().stream()
+            .map(roleAssignmentMapper::toDto)
+            .sorted(Comparator.comparing(RoleAssignmentDto::getId))
             .toList());
         return dto;
     }
@@ -60,6 +70,8 @@ public class UserMapper {
             .id(dto.getId())
             .username(dto.getUsername())
             .email(dto.getEmail())
+            .firstName(dto.getFirstName())
+            .lastName(dto.getLastName())
             .build();
     }
 
@@ -70,5 +82,7 @@ public class UserMapper {
 
         entity.setUsername(dto.getUsername());
         entity.setEmail(dto.getEmail());
+        entity.setFirstName(dto.getFirstName());
+        entity.setLastName(dto.getLastName());
     }
 }

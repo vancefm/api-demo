@@ -26,6 +26,38 @@ app:
     # Set based on expected processing time for maximum batch size
     timeout-seconds: 300
 
+  # ========================================================================
+  # AUTHENTICATION: EMBEDDED LDAP
+  # ========================================================================
+  # An in-process UnboundID directory is the application's only credential
+  # store. Callers send HTTP Basic credentials, which are bind-checked against
+  # uid=<username>,ou=people under the base DN. The users table never holds
+  # passwords, and LDAP groups are ignored: authorization comes from the RBAC
+  # role assignments in the database.
+  ldap:
+    base-dn: dc=demo,dc=com
+    # Entries loaded at startup (uid/password table in the file header)
+    ldif: classpath:ldap-users.ldif
+    # 0 = pick a free port. Pin one (e.g. 8389) to browse the directory with
+    # an external LDAP client while the app runs.
+    port: ${LDAP_PORT:0}
+    user-dn-pattern: uid={0},ou=people
+
+  # ========================================================================
+  # ROLE-BASED ACCESS CONTROL
+  # ========================================================================
+  # Roles are sets of entity:field CRUD permissions; users hold Department:Role
+  # grants. Everything is managed through /api/v1/roles and
+  # /api/v1/users/{id}/role-assignments, except the seed below.
+  rbac:
+    bootstrap:
+      # On startup, create the locked SuperAdmin role (*/* for every operation)
+      # and grant it globally to this directory user. Idempotent.
+      enabled: true
+      username: ${RBAC_BOOTSTRAP_USERNAME:admin}
+      email: ${RBAC_BOOTSTRAP_EMAIL:admin@example.com}
+      super-admin-role: SuperAdmin
+
 # ============================================================================
 # SPRING FRAMEWORK CONFIGURATION
 # ============================================================================
@@ -177,6 +209,14 @@ resilience4j:
       # Protects against database connection pool exhaustion and slow queries
       databaseQuery:
         registerHealthIndicator: true
+        # Business outcomes are not database failures: a 403/404/409/400 must
+        # not push the breaker towards OPEN.
+        ignoreExceptions:
+          - org.springframework.security.access.AccessDeniedException
+          - com.demo.platform.exception.ResourceNotFoundException
+          - com.demo.platform.exception.DuplicateResourceException
+          - com.demo.platform.exception.ConflictException
+          - com.demo.platform.exception.InvalidRequestException
         minimumNumberOfCalls: 8
         slidingWindowSize: 20
         failureRateThreshold: 60            # 60% failures opens circuit

@@ -1,6 +1,7 @@
 package com.demo.feature.computersystem;
 
 import com.demo.feature.department.DepartmentDto;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -13,7 +14,12 @@ import lombok.Setter;
 
 import java.util.List;
 
+/**
+ * {@code NON_NULL}: fields the caller may not read are nulled by the RBAC layer
+ * and therefore omitted from the JSON.
+ */
 @Schema(description = "Computer System Data Transfer Object")
+@JsonInclude(JsonInclude.Include.NON_NULL)
 @Getter
 @Setter
 @NoArgsConstructor

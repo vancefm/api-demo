@@ -1,5 +1,7 @@
 package com.demo.feature.department;
 
+import com.demo.feature.security.rbac.AccessControl;
+import com.demo.feature.security.rbac.Operation;
 import com.demo.platform.exception.DuplicateResourceException;
 import com.demo.platform.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,6 +13,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -20,6 +24,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,6 +34,9 @@ class DepartmentServiceTest {
     @Mock
     private DepartmentRepository repository;
 
+    @Mock
+    private AccessControl accessControl;
+
     private DepartmentService service;
 
     private Department testDepartment;
@@ -35,7 +44,10 @@ class DepartmentServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new DepartmentService(repository, new DepartmentMapper());
+        service = new DepartmentService(repository, new DepartmentMapper(), accessControl);
+        // Permissive access control: require* are no-ops, readableDepartments()
+        // is Optional.empty() (global) and masking is an identity.
+        lenient().when(accessControl.filterReadable(anyString(), any())).thenAnswer(inv -> inv.getArgument(1));
 
         testDepartment = Department.builder()
                 .id(1L)
@@ -93,7 +105,7 @@ class DepartmentServiceTest {
     void testGetAllDepartments() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Department> page = new PageImpl<>(Arrays.asList(testDepartment), pageable, 1);
-        when(repository.findAll(pageable)).thenReturn(page);
+        when(repository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
 
         Page<DepartmentDto> result = service.getAllDepartments(pageable);
 
@@ -140,20 +152,42 @@ class DepartmentServiceTest {
      */
     @Test
     void testDeleteDepartment_Success() {
-        when(repository.existsById(1L)).thenReturn(true);
+        when(repository.findById(1L)).thenReturn(Optional.of(testDepartment));
 
         service.deleteDepartment(1L);
 
-        verify(repository, times(1)).deleteById(1L);
+        verify(repository, times(1)).delete(testDepartment);
     }
 
     @Test
     void testDeleteDepartment_NotFound() {
-        when(repository.existsById(99L)).thenReturn(false);
+        when(repository.findById(99L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> service.deleteDepartment(99L));
 
-        verify(repository, never()).deleteById(any());
+        verify(repository, never()).delete(any(Department.class));
+    }
+
+    @Test
+    void testDeleteDepartment_DeniedDeletesNothing() {
+        when(repository.findById(1L)).thenReturn(Optional.of(testDepartment));
+        doThrow(new AccessDeniedException("Not permitted to DELETE Department in department(s) [1]"))
+            .when(accessControl).requireAccess(eq("Department"), eq(Operation.DELETE), any());
+
+        assertThrows(AccessDeniedException.class, () -> service.deleteDepartment(1L));
+
+        verify(repository, never()).delete(any(Department.class));
+    }
+
+    @Test
+    void testCreateDepartment_DeniedBeforeAnyLookup() {
+        doThrow(new AccessDeniedException("Not permitted to CREATE Department (requires a global grant)"))
+            .when(accessControl).requireAccess(eq("Department"), eq(Operation.CREATE), any());
+
+        assertThrows(AccessDeniedException.class, () -> service.createDepartment(testDto));
+
+        verify(repository, never()).existsByName(any());
+        verify(repository, never()).save(any(Department.class));
     }
 
     @Test
