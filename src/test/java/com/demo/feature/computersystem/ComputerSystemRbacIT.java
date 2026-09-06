@@ -2,11 +2,11 @@ package com.demo.feature.computersystem;
 
 import com.demo.feature.department.DepartmentDto;
 import com.demo.feature.department.DepartmentRepository;
-import com.demo.feature.security.rbac.Operation;
-import com.demo.feature.security.rbac.PermissionDto;
-import com.demo.feature.security.rbac.RoleAssignmentDto;
-import com.demo.feature.security.rbac.RoleDto;
-import com.demo.feature.security.rbac.RoleRepository;
+import com.demo.feature.security.rbac.role.Operation;
+import com.demo.feature.security.rbac.role.PermissionDto;
+import com.demo.feature.security.rbac.assignment.RoleAssignmentDto;
+import com.demo.feature.security.rbac.role.RoleDto;
+import com.demo.feature.security.rbac.role.RoleRepository;
 import com.demo.feature.user.UserDto;
 import com.demo.feature.user.UserRepository;
 import com.demo.testsupport.AsAdminMockMvc;

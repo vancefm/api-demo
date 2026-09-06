@@ -1,10 +1,10 @@
 package com.demo.feature.user;
 
 import com.demo.feature.department.DepartmentDto;
-import com.demo.feature.security.rbac.Operation;
-import com.demo.feature.security.rbac.PermissionDto;
-import com.demo.feature.security.rbac.RoleAssignmentDto;
-import com.demo.feature.security.rbac.RoleDto;
+import com.demo.feature.security.rbac.role.Operation;
+import com.demo.feature.security.rbac.role.PermissionDto;
+import com.demo.feature.security.rbac.assignment.RoleAssignmentDto;
+import com.demo.feature.security.rbac.role.RoleDto;
 import com.demo.testsupport.AsAdminMockMvc;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

@@ -1,6 +1,6 @@
 package com.demo.feature.computersystem;
 
-import com.demo.feature.security.rbac.SecuredEntity;
+import com.demo.feature.security.rbac.access.SecuredEntity;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

@@ -1,6 +1,6 @@
 package com.demo.feature.user;
 
-import com.demo.feature.security.rbac.RoleAssignment;
+import com.demo.feature.security.rbac.assignment.RoleAssignment;
 import com.demo.platform.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

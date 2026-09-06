@@ -29,7 +29,7 @@ A comprehensive Spring Boot REST API demonstration for managing computer systems
     - [Delete Computer System](#delete-computer-system)
   - [Users API](#users-api)
   - [Departments API](#departments-api)
-  - [Role-Based Access Control](#role-based-access-control)
+  - [Role-Based Access Control](#role-based-access-control) — developer guide with diagrams: [docs/rbac.md](docs/rbac.md)
     - [Concepts](#concepts)
     - [Data model](#data-model)
     - [Decision rules](#decision-rules)
@@ -502,6 +502,10 @@ Department fields on users and computer systems:
 ```
 
 ## Role-Based Access Control
+
+> **New to the RBAC code?** Start with the developer guide, [docs/rbac.md](docs/rbac.md): it
+> walks a request end to end with diagrams (layers, data model, decision rules, a sequence
+> diagram of an update) and explains how to secure a new entity. This section is the reference.
 
 Authorization is **data, not code**: roles and the permissions they carry are rows managed through
 the API, and a user's access is the union of the Department:Role pairs granted to them. Nothing about
@@ -1961,13 +1965,14 @@ feature/
     ├── auth/                               // UserPrincipal, CurrentUser, AppUserDetailsContextMapper (JIT provisioning),
     │                                       //   ProblemDetailAuthenticationEntryPoint (401 as RFC 9457)
     └── rbac/
-        ├── Role, Permission, Operation, RoleDto, PermissionDto, RoleMapper, RoleRepository
-        ├── RoleService, RoleController                    // /api/v1/roles
-        ├── RoleAssignment, RoleAssignmentDto, RoleAssignmentMapper, RoleAssignmentRepository
-        ├── RoleAssignmentService, RoleAssignmentController // /api/v1/users/{id}/role-assignments
-        ├── SecuredEntity, SecuredEntityRegistry          // extensibility point
-        ├── AccessControl, EffectivePermissions, FieldDiff, FieldAccessFilter   // the decision engine
-        └── RbacBootstrap, RbacProperties, RbacSecuredEntities                 // seed + app.rbac.*
+        ├── role/          // Role, Permission, Operation, RoleDto, PermissionDto, RoleMapper, RoleRepository,
+        │                  //   RoleService, RoleController (/api/v1/roles), RoleSecuredEntity
+        ├── assignment/    // RoleAssignment, RoleAssignmentDto, RoleAssignmentMapper, RoleAssignmentRepository,
+        │                  //   RoleAssignmentService, RoleAssignmentController (/api/v1/users/{id}/role-assignments),
+        │                  //   RoleAssignmentSecuredEntity
+        ├── access/        // the decision engine: AccessControl, EffectivePermissions, FieldDiff, FieldAccessFilter,
+        │                  //   and the extension point SecuredEntity, SecuredEntityRegistry
+        └── bootstrap/     // RbacBootstrap, RbacProperties (app.rbac.*)
 ```
 
 (`ComputerSystemSecuredEntity` and `DepartmentSecuredEntity` play the same role in their packages.)

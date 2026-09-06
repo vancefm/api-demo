@@ -1,7 +1,7 @@
 package com.demo.feature.user;
 
 import com.demo.feature.department.DepartmentDto;
-import com.demo.feature.security.rbac.RoleAssignmentDto;
+import com.demo.feature.security.rbac.assignment.RoleAssignmentDto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;

@@ -1,4 +1,10 @@
 package com.demo.feature.security.rbac;
+import com.demo.feature.security.rbac.role.PermissionDto;
+import com.demo.feature.security.rbac.assignment.RoleAssignment;
+import com.demo.feature.security.rbac.role.Role;
+import com.demo.feature.security.rbac.assignment.RoleAssignmentDto;
+import com.demo.feature.security.rbac.role.RoleDto;
+import com.demo.feature.security.rbac.role.Operation;
 
 import com.demo.feature.department.DepartmentDto;
 import com.demo.feature.user.UserDto;

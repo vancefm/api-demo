@@ -3,8 +3,8 @@ package com.demo.feature.user;
 import com.demo.feature.department.Department;
 import com.demo.feature.department.DepartmentDto;
 import com.demo.feature.department.DepartmentMapper;
-import com.demo.feature.security.rbac.RoleAssignmentDto;
-import com.demo.feature.security.rbac.RoleAssignmentMapper;
+import com.demo.feature.security.rbac.assignment.RoleAssignmentDto;
+import com.demo.feature.security.rbac.assignment.RoleAssignmentMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

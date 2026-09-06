@@ -1,8 +1,8 @@
 package com.demo.feature.department;
 
-import com.demo.feature.security.rbac.AccessControl;
-import com.demo.feature.security.rbac.FieldDiff;
-import com.demo.feature.security.rbac.Operation;
+import com.demo.feature.security.rbac.access.AccessControl;
+import com.demo.feature.security.rbac.access.FieldDiff;
+import com.demo.feature.security.rbac.role.Operation;
 import com.demo.platform.exception.DuplicateResourceException;
 import com.demo.platform.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
