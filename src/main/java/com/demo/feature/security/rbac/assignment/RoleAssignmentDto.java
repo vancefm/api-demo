@@ -1,6 +1,6 @@
 package com.demo.feature.security.rbac.assignment;
-import com.demo.feature.security.rbac.role.Role;
 
+import com.demo.feature.security.rbac.role.Role;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;

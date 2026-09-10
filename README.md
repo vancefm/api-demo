@@ -506,6 +506,8 @@ Department fields on users and computer systems:
 > **New to the RBAC code?** Start with the developer guide, [docs/rbac.md](docs/rbac.md): it
 > walks a request end to end with diagrams (layers, data model, decision rules, a sequence
 > diagram of an update) and explains how to secure a new entity. This section is the reference.
+> For why this is hand-written rather than delegated to Spring Security's built-in mechanisms or an
+> authorization library, see [docs/rbac-alternatives.md](docs/rbac-alternatives.md).
 
 Authorization is **data, not code**: roles and the permissions they carry are rows managed through
 the API, and a user's access is the union of the Department:Role pairs granted to them. Nothing about
@@ -531,7 +533,7 @@ a role or a grant is hard-wired except the seeded `SuperAdmin` (see [First-time 
 | Table | Columns | Notes |
 |---|---|---|
 | `roles` | `name` (unique), `description`, `system_role` | `system_role` marks seeded roles: not renamable, deletable or re-permissionable |
-| `permissions` | `role_id`, `entity_name`, `field_name`, `operation` | unique per role; owned by the role (`orphanRemoval`), FK `ON DELETE CASCADE` |
+| `role_permissions` | `role_id`, `entity_name`, `field_name`, `operation` | a permission is a **value**, not an entity: no id, no lifecycle. Collection table owned by the role, unique per role, FK `ON DELETE CASCADE` |
 | `role_assignments` | `user_id`, `role_id`, `department_id` (nullable) | unique triple; all three FKs `ON DELETE CASCADE` |
 
 Deleting a role, a user or a department therefore silently removes the grants that referenced it —
@@ -601,11 +603,14 @@ PUT    /api/v1/roles/{id}                              name/description only
 DELETE /api/v1/roles/{id}                              409 for system roles; cascades assignments
 GET    /api/v1/roles/{id}/permissions
 PUT    /api/v1/roles/{id}/permissions                  bare array — makes the set exactly this list
-POST   /api/v1/roles/{id}/permissions                  { entity, field?, operation }   (field defaults to "*")
-DELETE /api/v1/roles/{id}/permissions/{permissionId}
 ```
 
-A permission naming an unknown entity or field is rejected with **400** listing the known ones.
+Replacing the set is the only way to change permissions: send a longer list to add a grant, a
+shorter one to remove it, `[]` to clear them. Permissions are values with no id of their own, so
+there is nothing for an add-one or delete-one route to address.
+
+A permission naming an unknown entity or field is rejected with **400** listing the known ones, and
+the whole list is refused — a valid grant alongside an invalid one is not stored.
 
 ### Role Assignments API
 
@@ -1750,6 +1755,23 @@ spec:
 
 ## Recent Updates (June 2026)
 
+### RBAC Simplification and Alternatives Review (September 2026)
+- **Recorded why the RBAC is hand-written** in [docs/rbac-alternatives.md](docs/rbac-alternatives.md):
+  stock Spring Security, Spring Security ACL, jCasbin, the Zanzibar-style engines (OpenFGA, SpiceDB,
+  Permify), Keycloak and OPA were each evaluated. Field-level grants and pagination-safe department
+  scoping are what rule them out; the rest is ordinary domain CRUD under any option.
+- **A permission is now a value, not an entity**: no id, no audit columns, no separate unique
+  constraint. `Role` holds them in an `@ElementCollection` written to `role_permissions`, so
+  replacing a role's permissions is a clear-and-add instead of a hand-written diff.
+- **One route to edit permissions**: `PUT /api/v1/roles/{id}/permissions` replaces the whole set;
+  the redundant add-one and remove-one routes were removed.
+- **Registered a `PermissionEvaluator`**, so `hasPermission(#dto, 'UPDATE')` works in SpEL alongside
+  the explicit service-layer checks.
+- **Fixed a pre-existing error-handling bug**: the catch-all handler converted Spring's own MVC
+  exceptions into `500`s with a critical-alert email, so a wrong HTTP method returned 500 instead of
+  405. They now pass through with their intrinsic status. Deleted the unused `ErrorResponse` class,
+  dead since the RFC 9457 migration.
+
 ### Embedded-LDAP Authentication and Configurable RBAC (September 2026)
 - **Authentication is back**: HTTP Basic, bind-checked against an **embedded UnboundID LDAP server**
   loaded from `ldap-users.ldif` (`app.ldap.*`). The application holds no passwords — the `passwordHash`
@@ -1965,13 +1987,15 @@ feature/
     ├── auth/                               // UserPrincipal, CurrentUser, AppUserDetailsContextMapper (JIT provisioning),
     │                                       //   ProblemDetailAuthenticationEntryPoint (401 as RFC 9457)
     └── rbac/
-        ├── role/          // Role, Permission, Operation, RoleDto, PermissionDto, RoleMapper, RoleRepository,
-        │                  //   RoleService, RoleController (/api/v1/roles), RoleSecuredEntity
+        ├── role/          // Role + Permission (an @Embeddable value), Operation, RoleDto, PermissionDto,
+        │                  //   RoleMapper, RoleRepository, RoleService, RoleController (/api/v1/roles),
+        │                  //   RoleSecuredEntity
         ├── assignment/    // RoleAssignment, RoleAssignmentDto, RoleAssignmentMapper, RoleAssignmentRepository,
         │                  //   RoleAssignmentService, RoleAssignmentController (/api/v1/users/{id}/role-assignments),
         │                  //   RoleAssignmentSecuredEntity
         ├── access/        // the decision engine: AccessControl, EffectivePermissions, FieldDiff, FieldAccessFilter,
-        │                  //   and the extension point SecuredEntity, SecuredEntityRegistry
+        │                  //   the extension point SecuredEntity/SecuredEntityRegistry, and
+        │                  //   RbacPermissionEvaluator (Spring Security's hasPermission hook)
         └── bootstrap/     // RbacBootstrap, RbacProperties (app.rbac.*)
 ```
 
@@ -2011,7 +2035,8 @@ platform/
 └── exception/
     ├── DuplicateResourceException.java, ResourceNotFoundException.java
     ├── ConflictException.java (409), InvalidRequestException.java (400)
-    └── ErrorResponse.java, GlobalExceptionHandler.java   // also maps AccessDeniedException → 403
+    └── GlobalExceptionHandler.java   // RFC 9457 ProblemDetail for every error,
+                                      //   incl. AccessDeniedException → 403
 ```
 
 ## Adding a New Domain Model

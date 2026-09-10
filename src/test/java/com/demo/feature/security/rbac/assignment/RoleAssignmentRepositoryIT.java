@@ -1,10 +1,10 @@
 package com.demo.feature.security.rbac.assignment;
-import com.demo.feature.security.rbac.role.Role;
-import com.demo.feature.security.rbac.role.RoleRepository;
-import com.demo.feature.security.rbac.role.Operation;
 
 import com.demo.feature.department.Department;
 import com.demo.feature.department.DepartmentRepository;
+import com.demo.feature.security.rbac.role.Operation;
+import com.demo.feature.security.rbac.role.Role;
+import com.demo.feature.security.rbac.role.RoleRepository;
 import com.demo.feature.user.User;
 import com.demo.feature.user.UserRepository;
 import com.demo.platform.config.JpaConfig;

@@ -19,9 +19,6 @@ import lombok.Setter;
 @Builder
 public class PermissionDto {
 
-    @Schema(description = "Permission ID", example = "12", accessMode = Schema.AccessMode.READ_ONLY)
-    private Long id;
-
     @NotBlank(message = "Permission entity is required")
     @Schema(description = "Secured entity name, or * for every entity", example = "User")
     private String entity;

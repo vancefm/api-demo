@@ -5,12 +5,21 @@ import org.springframework.stereotype.Component;
 import java.util.Comparator;
 
 /**
- * Maps between {@link Role}/{@link Permission} entities and their DTOs.
+ * Maps between {@link Role}/{@link Permission} and their DTOs.
  * Permissions are not mapped inbound here: {@code RoleService} validates each
  * one against the secured-entity registry before adding it.
  */
 @Component
 public class RoleMapper {
+
+    /**
+     * Permissions are values with no id, so JSON order is made deterministic by
+     * sorting on the grant itself — Set iteration order is undefined.
+     */
+    private static final Comparator<PermissionDto> BY_GRANT =
+        Comparator.comparing(PermissionDto::getEntity)
+            .thenComparing(PermissionDto::getField)
+            .thenComparing(permission -> permission.getOperation().name());
 
     public RoleDto toDto(Role entity) {
         if (entity == null) {
@@ -22,20 +31,18 @@ public class RoleMapper {
             .name(entity.getName())
             .description(entity.getDescription())
             .system(entity.isSystem())
-            // Sorted by id for deterministic JSON output — Set iteration order is undefined.
             .permissions(entity.getPermissions().stream()
                 .map(this::toDto)
-                .sorted(Comparator.comparing(PermissionDto::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                .sorted(BY_GRANT)
                 .toList())
             .build();
     }
 
-    public PermissionDto toDto(Permission entity) {
+    public PermissionDto toDto(Permission permission) {
         return PermissionDto.builder()
-            .id(entity.getId())
-            .entity(entity.getEntity())
-            .field(entity.getField())
-            .operation(entity.getOperation())
+            .entity(permission.getEntity())
+            .field(permission.getField())
+            .operation(permission.getOperation())
             .build();
     }
 

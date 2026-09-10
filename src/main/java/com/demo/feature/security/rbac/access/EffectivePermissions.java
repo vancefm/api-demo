@@ -1,7 +1,8 @@
 package com.demo.feature.security.rbac.access;
-import com.demo.feature.security.rbac.role.Permission;
+
 import com.demo.feature.security.rbac.assignment.RoleAssignment;
 import com.demo.feature.security.rbac.role.Operation;
+import com.demo.feature.security.rbac.role.Permission;
 
 import java.util.Collection;
 import java.util.HashSet;

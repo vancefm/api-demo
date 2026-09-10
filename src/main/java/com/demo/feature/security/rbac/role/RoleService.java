@@ -1,8 +1,8 @@
 package com.demo.feature.security.rbac.role;
-import com.demo.feature.security.rbac.access.AccessControl;
-import com.demo.feature.security.rbac.access.SecuredEntityRegistry;
-import com.demo.feature.security.rbac.access.FieldDiff;
 
+import com.demo.feature.security.rbac.access.AccessControl;
+import com.demo.feature.security.rbac.access.FieldDiff;
+import com.demo.feature.security.rbac.access.SecuredEntityRegistry;
 import com.demo.platform.exception.ConflictException;
 import com.demo.platform.exception.DuplicateResourceException;
 import com.demo.platform.exception.InvalidRequestException;
@@ -15,11 +15,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.Comparator;
-import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Manages roles and their permissions.
@@ -61,7 +60,7 @@ public class RoleService {
             reconcilePermissions(role, dto.getPermissions());
         }
 
-        Role saved = repository.saveAndFlush(role);
+        Role saved = repository.save(role);
         log.info("Created role: {} with {} permission(s)", saved.getName(), saved.getPermissions().size());
         return accessControl.filterReadable(ROLE, mapper.toDto(saved));
     }
@@ -134,49 +133,16 @@ public class RoleService {
     }
 
     /**
-     * Makes the role's permissions exactly the given list (duplicates in the
-     * request collapse to one). Diffed rather than cleared and rebuilt: Hibernate
-     * flushes inserts before deletes, so re-submitting an existing grant would
-     * otherwise trip the unique constraint.
+     * Makes the role's permissions exactly the given list; duplicates in the
+     * request collapse to one. This is the only way to change them — a grant is
+     * a value, so "add one" and "remove one" are just this call with a longer or
+     * shorter list.
      */
     public List<PermissionDto> replacePermissions(Long roleId, List<PermissionDto> permissions) {
         Role role = loadEditable(roleId);
         reconcilePermissions(role, permissions);
-        // The role is managed: flushing cascades the persist onto the new Permission
-        // instances themselves (assigning ids). saveAndFlush would merge, which
-        // persists *copies* and leaves our instances without ids.
-        repository.flush();
         log.info("Replaced permissions of role {}: now {}", role.getName(), role.getPermissions().size());
         return mapper.toDto(role).getPermissions();
-    }
-
-    public PermissionDto addPermission(Long roleId, PermissionDto dto) {
-        Role role = loadEditable(roleId);
-        Permission requested = validated(dto);
-
-        boolean exists = role.getPermissions().stream()
-            .anyMatch(existing -> existing.key().equals(requested.key()));
-        if (exists) {
-            throw new DuplicateResourceException("Role '" + role.getName() + "' already has permission " + requested.key());
-        }
-
-        Permission added = role.addPermission(requested.getEntity(), requested.getField(), requested.getOperation());
-        repository.flush();
-        log.info("Added permission {} to role {}", added.key(), role.getName());
-        return mapper.toDto(added);
-    }
-
-    public void removePermission(Long roleId, Long permissionId) {
-        Role role = loadEditable(roleId);
-        Permission permission = role.getPermissions().stream()
-            .filter(candidate -> permissionId.equals(candidate.getId()))
-            .findFirst()
-            .orElseThrow(() -> new ResourceNotFoundException(
-                "Permission with id " + permissionId + " on role " + roleId + NOT_FOUND));
-
-        role.getPermissions().remove(permission);
-        repository.flush();
-        log.info("Removed permission {} from role {}", permission.key(), role.getName());
     }
 
     /**
@@ -208,26 +174,18 @@ public class RoleService {
     }
 
     /**
-     * Reconciles {@code role.permissions} with the request: grants no longer
-     * requested are removed, missing ones are added, survivors are untouched.
+     * Makes {@code role.permissions} exactly the requested set. Permissions are
+     * values, so this is a straight replacement: Hibernate rewrites the
+     * collection table, and equal grants collapse in the set rather than
+     * colliding on the unique constraint.
      */
     private void reconcilePermissions(Role role, List<PermissionDto> requested) {
-        Map<String, Permission> desired = new LinkedHashMap<>();
-        for (PermissionDto dto : requested) {
-            Permission permission = validated(dto);
-            desired.putIfAbsent(permission.key(), permission);
-        }
+        Set<Permission> desired = requested.stream()
+            .map(this::validated)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        role.getPermissions().removeIf(existing -> !desired.containsKey(existing.key()));
-
-        role.getPermissions().stream()
-            .map(Permission::key)
-            .toList()
-            .forEach(desired::remove);
-
-        desired.values().stream()
-            .sorted(Comparator.comparing(Permission::key))
-            .forEach(p -> role.addPermission(p.getEntity(), p.getField(), p.getOperation()));
+        role.getPermissions().clear();
+        role.getPermissions().addAll(desired);
     }
 
     /**

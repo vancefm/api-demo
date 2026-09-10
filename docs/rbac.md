@@ -72,6 +72,7 @@ Key classes:
 
 | Concern | Class | Package |
 |---|---|---|
+| SpEL adapter (`hasPermission`) | `RbacPermissionEvaluator` | `feature.security.rbac.access` |
 | Directory + provider | `EmbeddedLdapConfig`, `LdapProperties` | `feature.security.ldap` |
 | Identity | `UserPrincipal`, `CurrentUser`, `AppUserDetailsContextMapper`, `ProblemDetailAuthenticationEntryPoint` | `feature.security.auth` |
 | Decision API | `AccessControl` | `feature.security.rbac.access` |
@@ -98,7 +99,7 @@ erDiagram
     USERS ||--o{ ROLE_ASSIGNMENTS : "holds"
     ROLES ||--o{ ROLE_ASSIGNMENTS : "granted as"
     DEPARTMENTS |o--o{ ROLE_ASSIGNMENTS : "scoped to (null = global)"
-    ROLES ||--o{ PERMISSIONS : "owns"
+    ROLES ||--o{ ROLE_PERMISSIONS : "owns (values, not entities)"
 
     USERS {
         bigint id PK
@@ -114,8 +115,7 @@ erDiagram
         varchar description
         boolean system_role "seeded; locked"
     }
-    PERMISSIONS {
-        bigint id PK
+    ROLE_PERMISSIONS {
         bigint role_id FK "ON DELETE CASCADE"
         varchar entity_name "User | ComputerSystem | ... | *"
         varchar field_name "DTO property | *"
@@ -139,11 +139,13 @@ erDiagram
 
 Things to notice:
 
-- **`permissions` rows belong to their role.** `Role.permissions` is an owned collection
-  (`cascade = ALL, orphanRemoval = true`); there is no `PermissionRepository`. Unique on
-  `(role_id, entity_name, field_name, operation)`. `RoleService.reconcilePermissions` *diffs* the
-  requested list against the stored one rather than clearing and re-adding — Hibernate flushes
-  inserts before deletes, so re-submitting an existing grant would otherwise hit the unique key.
+- **A permission is a value, not an entity.** It has no id and no lifecycle of its own: three
+  strings that either match a request or do not. `Permission` is an `@Embeddable` held by
+  `Role.permissions` in an `@ElementCollection`, which Hibernate writes to the `role_permissions`
+  collection table. Two grants naming the same entity, field and operation are the same grant, so
+  the owning `Set` absorbs duplicates before they reach the database and the unique constraint is
+  only a backstop. Replacing a role's permissions is therefore a clear-and-add; Hibernate rewrites
+  the collection in one go. There is no `PermissionRepository` and nothing to diff.
 - **Every FK on `role_assignments` cascades.** Deleting a user, a role or a department silently
   removes the grants that referenced it. This is the same "deletion is never blocked" philosophy
   the department join tables follow, and it is asserted straight out of `INFORMATION_SCHEMA` by
@@ -537,7 +539,8 @@ for `Widget` and any of its DTO fields, and `requireKnown` will reject anything 
 | Masking and JSON omission | `FieldAccessFilterTest` |
 | Permission validation against DTO fields | `SecuredEntityRegistryTest`, `RoleServiceTest`, `RoleIntegrationIT` |
 | List scoping without row fan-out | `DepartmentSpecificationsIT` |
-| Data model: unique keys, orphan removal, `ON DELETE CASCADE` on every FK | `RoleRepositoryIT`, `RoleAssignmentRepositoryIT`, `DepartmentCascadeIT` |
+| Data model: permissions round-trip as values, whole-set rewrite, `ON DELETE CASCADE` on every FK | `RoleRepositoryIT`, `RoleAssignmentRepositoryIT`, `DepartmentCascadeIT` |
+| `hasPermission(...)` SpEL adapter | `RbacPermissionEvaluatorTest` |
 | Authentication, JIT provisioning, 401 shape, open actuator | `AuthenticationIT`, `EmbeddedLdapAuthenticationIT`, `AppUserDetailsContextMapperTest` |
 | Seed and idempotence | `RbacBootstrapIT` |
 | End-to-end scenarios | `UserRbacIT` (worked example), `DepartmentRbacIT`, `ComputerSystemRbacIT` (batch all-or-nothing, non-transactional on purpose), `RbacManagementIT` |
@@ -547,6 +550,10 @@ for `Widget` and any of its DTO fields, and `requireKnown` will reject anything 
 authenticate as `admin` by default and use `asUser(...)` to act as someone else.
 
 ## 12. Design choices and known limits
+
+> Why this is hand-written rather than delegated to Spring Security's built-in mechanisms or an
+> authorization library is recorded in [docs/rbac-alternatives.md](rbac-alternatives.md), including
+> what was rejected and what would change the answer.
 
 - **No default role on provisioning.** A first login can do nothing until an administrator grants
   a role. The hook for a baseline role would be `RbacBootstrap` or

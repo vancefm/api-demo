@@ -93,16 +93,20 @@ class RoleIntegrationIT {
     @Test
     void unknownEntityOrFieldIs400() throws Exception {
         RoleDto created = createRole("Strict-" + System.nanoTime(), List.of());
+        String permissions = "/api/v1/roles/" + created.getId() + "/permissions";
 
-        mockMvc.perform(post("/api/v1/roles/" + created.getId() + "/permissions")
-                .contentType(MediaType.APPLICATION_JSON).content(json(perm("User", "password", Operation.UPDATE))))
+        mockMvc.perform(put(permissions).contentType(MediaType.APPLICATION_JSON)
+                .content(json(List.of(perm("User", "password", Operation.UPDATE)))))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.detail", containsString("password")));
 
-        mockMvc.perform(post("/api/v1/roles/" + created.getId() + "/permissions")
-                .contentType(MediaType.APPLICATION_JSON).content(json(perm("Widget", "*", Operation.READ))))
+        mockMvc.perform(put(permissions).contentType(MediaType.APPLICATION_JSON)
+                .content(json(List.of(perm("Widget", "*", Operation.READ)))))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.detail", containsString("Widget")));
+
+        // Rejected as a whole: the valid grant in the same list is not stored either
+        mockMvc.perform(get(permissions)).andExpect(jsonPath("$", hasSize(0)));
     }
 
     @Test
@@ -115,21 +119,37 @@ class RoleIntegrationIT {
             .andExpect(status().isConflict());
     }
 
+    /**
+     * Adding and removing a single grant is expressed by sending a longer or
+     * shorter list — there is no add-one or remove-one route.
+     */
     @Test
-    void addThenRemoveSinglePermission() throws Exception {
+    void addingAndRemovingOneGrantViaTheReplaceCall() throws Exception {
         RoleDto created = createRole("Single-" + System.nanoTime(), List.of());
+        String permissions = "/api/v1/roles/" + created.getId() + "/permissions";
 
-        String body = mockMvc.perform(post("/api/v1/roles/" + created.getId() + "/permissions")
-                .contentType(MediaType.APPLICATION_JSON).content(json(perm("ComputerSystem", "hostname", Operation.READ))))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.field", is("hostname")))
-            .andReturn().getResponse().getContentAsString();
-        PermissionDto added = objectMapper.readValue(body, PermissionDto.class);
+        mockMvc.perform(put(permissions).contentType(MediaType.APPLICATION_JSON)
+                .content(json(List.of(perm("ComputerSystem", "hostname", Operation.READ)))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].field", is("hostname")));
 
-        mockMvc.perform(delete("/api/v1/roles/" + created.getId() + "/permissions/" + added.getId()))
-            .andExpect(status().isNoContent());
-        mockMvc.perform(get("/api/v1/roles/" + created.getId() + "/permissions"))
+        mockMvc.perform(put(permissions).contentType(MediaType.APPLICATION_JSON).content("[]"))
+            .andExpect(status().isOk())
             .andExpect(jsonPath("$", hasSize(0)));
+
+        mockMvc.perform(get(permissions)).andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    void permissionsHaveNoIdOfTheirOwn() throws Exception {
+        RoleDto created = createRole("Ids-" + System.nanoTime(),
+            List.of(perm("User", "firstName", Operation.READ)));
+
+        mockMvc.perform(get("/api/v1/roles/" + created.getId()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.permissions[0].entity", is("User")))
+            .andExpect(jsonPath("$.permissions[0].id").doesNotExist());
     }
 
     @Test

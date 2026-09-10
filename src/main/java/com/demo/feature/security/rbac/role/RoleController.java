@@ -102,8 +102,10 @@ public class RoleController {
 
     @PutMapping("/{id}/permissions")
     @Operation(summary = "Replace a role's permissions",
-        description = "Makes the role's permissions exactly this list. Each item is {entity, field, operation}; "
-            + "field defaults to '*'. Unknown entities or fields are rejected with 400.")
+        description = "Makes the role's permissions exactly this list — the only way to change them. "
+            + "Each item is {entity, field, operation}; field defaults to '*'. Send a longer list to add "
+            + "a grant, a shorter one to remove it, an empty list to clear them. Unknown entities or "
+            + "fields are rejected with 400.")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Permissions replaced"),
         @ApiResponse(responseCode = "400", description = "Unknown entity or field"),
@@ -113,30 +115,5 @@ public class RoleController {
     public ResponseEntity<List<PermissionDto>> replacePermissions(@PathVariable Long id,
                                                                   @RequestBody List<PermissionDto> permissions) {
         return ResponseEntity.ok(roleService.replacePermissions(id, permissions));
-    }
-
-    @PostMapping("/{id}/permissions")
-    @Operation(summary = "Add one permission to a role")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "201", description = "Permission added"),
-        @ApiResponse(responseCode = "400", description = "Unknown entity or field"),
-        @ApiResponse(responseCode = "404", description = "Role not found"),
-        @ApiResponse(responseCode = "409", description = "Permission already present, or system role")
-    })
-    public ResponseEntity<PermissionDto> addPermission(@PathVariable Long id,
-                                                       @Valid @RequestBody PermissionDto permission) {
-        return new ResponseEntity<>(roleService.addPermission(id, permission), HttpStatus.CREATED);
-    }
-
-    @DeleteMapping("/{id}/permissions/{permissionId}")
-    @Operation(summary = "Remove one permission from a role")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "204", description = "Permission removed"),
-        @ApiResponse(responseCode = "404", description = "Role or permission not found"),
-        @ApiResponse(responseCode = "409", description = "System role permissions cannot be changed")
-    })
-    public ResponseEntity<Void> removePermission(@PathVariable Long id, @PathVariable Long permissionId) {
-        roleService.removePermission(id, permissionId);
-        return ResponseEntity.noContent().build();
     }
 }

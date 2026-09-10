@@ -1,10 +1,10 @@
 package com.demo.feature.security.rbac.bootstrap;
-import com.demo.feature.security.rbac.role.Permission;
-import com.demo.feature.security.rbac.assignment.RoleAssignmentRepository;
+
 import com.demo.feature.security.rbac.assignment.RoleAssignment;
+import com.demo.feature.security.rbac.assignment.RoleAssignmentRepository;
+import com.demo.feature.security.rbac.role.Permission;
 import com.demo.feature.security.rbac.role.Role;
 import com.demo.feature.security.rbac.role.RoleRepository;
-
 import com.demo.feature.user.User;
 import com.demo.feature.user.UserRepository;
 import org.junit.jupiter.api.Test;

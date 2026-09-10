@@ -10,6 +10,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -269,15 +270,33 @@ public class GlobalExceptionHandler {
      *
      * This is the catch-all handler for any unexpected server errors.
      * Always emails critical errors so admin can investigate.
+     *
+     * <p>Spring's own MVC exceptions are the exception to that. They implement
+     * {@link org.springframework.web.ErrorResponse} and already carry the right status — 405 for a wrong
+     * method, 415 for an unsupported media type, 404 for an unmapped path — so
+     * they are passed through with that status and no alert. Without this, the
+     * catch-all below would turn every such client mistake into a 500 and page
+     * the admin about it.
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleGeneralException(
             Exception ex,
             HttpServletRequest request) {
-        
+
+        if (ex instanceof ErrorResponse errorResponse) {
+            ProblemDetail problem = errorResponse.getBody();
+            problem.setInstance(URI.create(request.getRequestURI()));
+            problem.setProperty("timestamp", Instant.now());
+
+            log.debug("{} {} -> {}: {}", request.getMethod(), request.getRequestURI(),
+                problem.getStatus(), ex.getMessage());
+
+            return ResponseEntity.status(problem.getStatus()).body(problem);
+        }
+
         // Log full stack trace for debugging
         log.error("Unhandled exception in API: {}", request.getRequestURI(), ex);
-        
+
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
         problem.setTitle("Internal Server Error");
         problem.setDetail(ex.getMessage());

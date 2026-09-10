@@ -1,55 +1,43 @@
 package com.demo.feature.security.rbac.role;
 
-import com.demo.platform.BaseEntity;
 import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
+import jakarta.persistence.Embeddable;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
-import lombok.experimental.SuperBuilder;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 
 /**
  * One {@code entity:field → operation} grant belonging to a {@link Role}.
  *
  * <p>{@code entity} is the secured entity's name (e.g. {@code User}) and
  * {@code field} one of its DTO property names (e.g. {@code firstName}); either
- * may be {@link #ANY} to mean "every entity" / "every field". Rows are owned by
- * the role's {@code permissions} collection ({@code cascade = ALL},
- * {@code orphanRemoval = true}), so they need no repository of their own, and
- * the foreign key is {@code ON DELETE CASCADE} so deleting a role removes them
- * at the database level too.
+ * may be {@link #ANY} to mean "every entity" / "every field".
+ *
+ * <p>This is a <strong>value</strong>, not an entity: a permission has no
+ * identity of its own, is never edited in place, and is meaningless apart from
+ * the role that holds it. It is therefore mapped as an {@link Embeddable} in
+ * {@code Role.permissions}, which Hibernate stores in the {@code role_permissions}
+ * collection table. Two permissions with the same entity, field and operation
+ * are the same permission — hence {@link EqualsAndHashCode}, which is what lets
+ * the owning {@code Set} collapse duplicates before they ever reach the
+ * database.
  */
-@Entity
-@Table(name = "permissions",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_permission",
-        columnNames = {"role_id", "entity_name", "field_name", "operation"}))
+@Embeddable
 @Getter
-@Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@SuperBuilder
-public class Permission extends BaseEntity {
+@Builder
+@EqualsAndHashCode
+public class Permission {
 
     /**
      * Wildcard for {@code entity} or {@code field}.
      */
     public static final String ANY = "*";
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "role_id", nullable = false)
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    private Role role;
 
     @Column(name = "entity_name", nullable = false, length = 100)
     private String entity;
@@ -71,10 +59,15 @@ public class Permission extends BaseEntity {
     }
 
     /**
-     * Identity of the grant independent of its database id — used to diff a
-     * requested permission list against the stored one.
+     * Human-readable form, used in log and error messages and as a stable sort
+     * key. Carries the same information as {@link #equals}.
      */
     public String key() {
         return entity + ":" + field + ":" + operation;
+    }
+
+    @Override
+    public String toString() {
+        return key();
     }
 }

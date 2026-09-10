@@ -56,7 +56,7 @@ class RoleControllerTest {
 
     @BeforeEach
     void setUp() {
-        readFirstName = PermissionDto.builder().id(7L).entity("User").field("firstName").operation(Operation.READ).build();
+        readFirstName = PermissionDto.builder().entity("User").field("firstName").operation(Operation.READ).build();
         testDto = RoleDto.builder().id(1L).name("Department User").description("desc").system(false)
             .permissions(List.of(readFirstName)).build();
     }
@@ -155,28 +155,21 @@ class RoleControllerTest {
                 .content(json(List.of(readFirstName))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$", hasSize(1)))
-            .andExpect(jsonPath("$[0].field", is("firstName")));
+            .andExpect(jsonPath("$[0].field", is("firstName")))
+            .andExpect(jsonPath("$[0].id").doesNotExist());
     }
 
+    /**
+     * Replacing the set is the only permissions route; the add-one and
+     * remove-one variants were removed as redundant.
+     */
     @Test
-    void addPermission_missingOperationIs400() throws Exception {
-        mockMvc.perform(post("/api/v1/roles/1/permissions").contentType(MediaType.APPLICATION_JSON)
-                .content(json(PermissionDto.builder().entity("User").field("email").build())))
-            .andExpect(status().isBadRequest());
-
-        verify(service, never()).addPermission(any(), any());
-    }
-
-    @Test
-    void addAndRemovePermission() throws Exception {
-        when(service.addPermission(eq(1L), any(PermissionDto.class))).thenReturn(readFirstName);
-
+    void addAndRemovePermissionRoutesAreGone() throws Exception {
         mockMvc.perform(post("/api/v1/roles/1/permissions").contentType(MediaType.APPLICATION_JSON)
                 .content(json(readFirstName)))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.id", is(7)));
+            .andExpect(status().isMethodNotAllowed());
 
-        mockMvc.perform(delete("/api/v1/roles/1/permissions/7")).andExpect(status().isNoContent());
-        verify(service).removePermission(1L, 7L);
+        mockMvc.perform(delete("/api/v1/roles/1/permissions/7"))
+            .andExpect(status().isNotFound());
     }
 }

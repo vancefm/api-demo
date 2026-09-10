@@ -1,9 +1,9 @@
 package com.demo.feature.security.rbac.access;
-import com.demo.feature.security.rbac.assignment.RoleAssignment;
-import com.demo.feature.security.rbac.role.Role;
-import com.demo.feature.security.rbac.role.Operation;
 
 import com.demo.feature.department.Department;
+import com.demo.feature.security.rbac.assignment.RoleAssignment;
+import com.demo.feature.security.rbac.role.Operation;
+import com.demo.feature.security.rbac.role.Role;
 import com.demo.feature.user.User;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

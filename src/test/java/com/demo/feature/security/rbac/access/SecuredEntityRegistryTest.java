@@ -1,7 +1,7 @@
 package com.demo.feature.security.rbac.access;
+
 import com.demo.feature.security.rbac.role.Role;
 import com.demo.feature.security.rbac.role.RoleDto;
-
 import com.demo.feature.user.UserDto;
 import com.demo.platform.exception.InvalidRequestException;
 import org.junit.jupiter.api.Test;

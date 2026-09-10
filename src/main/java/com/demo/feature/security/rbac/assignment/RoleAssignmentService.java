@@ -1,11 +1,11 @@
 package com.demo.feature.security.rbac.assignment;
-import com.demo.feature.security.rbac.role.RoleService;
-import com.demo.feature.security.rbac.access.AccessControl;
-import com.demo.feature.security.rbac.role.Role;
-import com.demo.feature.security.rbac.role.Operation;
 
 import com.demo.feature.department.Department;
 import com.demo.feature.department.DepartmentService;
+import com.demo.feature.security.rbac.access.AccessControl;
+import com.demo.feature.security.rbac.role.Operation;
+import com.demo.feature.security.rbac.role.Role;
+import com.demo.feature.security.rbac.role.RoleService;
 import com.demo.feature.user.User;
 import com.demo.feature.user.UserManagementService;
 import com.demo.platform.exception.DuplicateResourceException;

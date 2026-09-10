@@ -1,6 +1,6 @@
 package com.demo.feature.security.rbac.access;
-import com.demo.feature.security.rbac.role.Permission;
 
+import com.demo.feature.security.rbac.role.Permission;
 import com.demo.platform.exception.InvalidRequestException;
 import org.springframework.stereotype.Component;
 
@@ -34,6 +34,16 @@ public class SecuredEntityRegistry {
 
     public Optional<SecuredEntity<?>> find(String name) {
         return Optional.ofNullable(byName.get(name));
+    }
+
+    /**
+     * Looks a descriptor up by its DTO type, for callers that hold an object
+     * rather than an entity name (see {@link RbacPermissionEvaluator}).
+     */
+    public Optional<SecuredEntity<?>> findByDtoClass(Class<?> dtoClass) {
+        return byName.values().stream()
+            .filter(secured -> secured.dtoClass().equals(dtoClass))
+            .findFirst();
     }
 
     public SecuredEntity<?> require(String name) {

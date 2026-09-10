@@ -1,8 +1,8 @@
 package com.demo.feature.security.rbac.role;
-import com.demo.feature.security.rbac.access.SecuredEntity;
-import com.demo.feature.security.rbac.access.AccessControl;
-import com.demo.feature.security.rbac.access.SecuredEntityRegistry;
 
+import com.demo.feature.security.rbac.access.AccessControl;
+import com.demo.feature.security.rbac.access.SecuredEntity;
+import com.demo.feature.security.rbac.access.SecuredEntityRegistry;
 import com.demo.feature.user.UserDto;
 import com.demo.platform.exception.ConflictException;
 import com.demo.platform.exception.DuplicateResourceException;
@@ -21,7 +21,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -61,7 +60,6 @@ class RoleServiceTest {
         system.addPermission("*", "*", Operation.READ);
 
         lenient().when(repository.save(any(Role.class))).thenAnswer(inv -> inv.getArgument(0));
-        lenient().when(repository.saveAndFlush(any(Role.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
     private static PermissionDto perm(String entity, String field, Operation op) {
@@ -92,7 +90,7 @@ class RoleServiceTest {
 
         assertThrows(DuplicateResourceException.class,
             () -> service.createRole(RoleDto.builder().name("Reader").build()));
-        verify(repository, never()).saveAndFlush(any());
+        verify(repository, never()).save(any());
     }
 
     @Test
@@ -107,7 +105,7 @@ class RoleServiceTest {
             .permissions(List.of(perm("*", "email", Operation.READ))).build()));
         assertThrows(InvalidRequestException.class, () -> service.createRole(RoleDto.builder().name("x")
             .permissions(List.of(perm("User", "email", null))).build()));
-        verify(repository, never()).saveAndFlush(any());
+        verify(repository, never()).save(any());
     }
 
     @Test
@@ -155,20 +153,43 @@ class RoleServiceTest {
     }
 
     @Test
-    void replacePermissions_diffsKeepingSurvivorsAndCollapsingDuplicates() {
-        Permission surviving = editable.addPermission("User", "firstName", Operation.READ);
+    void replacePermissions_makesTheSetExactAndCollapsesDuplicates() {
+        editable.addPermission("User", "firstName", Operation.READ);
         editable.addPermission("User", "lastName", Operation.READ);
         when(repository.findById(1L)).thenReturn(Optional.of(editable));
 
-        service.replacePermissions(1L, List.of(
+        List<PermissionDto> result = service.replacePermissions(1L, List.of(
             perm("User", "firstName", Operation.READ),
             perm("User", "firstName", Operation.READ),
             perm("User", "email", Operation.UPDATE)));
 
+        // lastName is gone, the duplicate collapsed, email was added
         assertEquals(Set.of("User:firstName:READ", "User:email:UPDATE"), keys(editable));
-        assertTrue(editable.getPermissions().contains(surviving), "surviving grant keeps its identity");
-        assertSame(surviving, editable.getPermissions().stream()
-            .filter(p -> "firstName".equals(p.getField())).findFirst().orElseThrow());
+        assertEquals(2, result.size());
+    }
+
+    @Test
+    void replacePermissions_emptyListClearsThem() {
+        editable.addPermission("User", "firstName", Operation.READ);
+        when(repository.findById(1L)).thenReturn(Optional.of(editable));
+
+        assertTrue(service.replacePermissions(1L, List.of()).isEmpty());
+        assertTrue(editable.getPermissions().isEmpty());
+    }
+
+    /**
+     * Permissions are values: two grants naming the same entity, field and
+     * operation are the same grant, so the owning set absorbs the duplicate
+     * before it can reach the unique constraint.
+     */
+    @Test
+    void equalGrantsCollapseInTheSet() {
+        editable.addPermission("User", "email", Operation.READ);
+        editable.addPermission("User", "email", Operation.READ);
+
+        assertEquals(1, editable.getPermissions().size());
+        assertEquals(Permission.builder().entity("User").field("email").operation(Operation.READ).build(),
+            editable.getPermissions().iterator().next());
     }
 
     @Test
@@ -178,18 +199,6 @@ class RoleServiceTest {
         assertThrows(ConflictException.class,
             () -> service.replacePermissions(2L, List.of(perm("User", "*", Operation.READ))));
         assertEquals(Set.of("*:*:READ"), keys(system));
-    }
-
-    @Test
-    void addPermission_addsOnceThenConflicts() {
-        when(repository.findById(1L)).thenReturn(Optional.of(editable));
-
-        PermissionDto added = service.addPermission(1L, perm("User", "email", Operation.READ));
-        assertEquals("email", added.getField());
-        assertEquals(Set.of("User:email:READ"), keys(editable));
-
-        assertThrows(DuplicateResourceException.class,
-            () -> service.addPermission(1L, perm("User", "email", Operation.READ)));
     }
 
     @Test
@@ -203,7 +212,6 @@ class RoleServiceTest {
             () -> service.replacePermissions(1L, List.of(perm("User", "email", Operation.READ))));
 
         assertEquals(Set.of("User:firstName:READ"), keys(editable), "nothing changed");
-        verify(repository, never()).flush();
     }
 
     @Test
@@ -213,26 +221,6 @@ class RoleServiceTest {
 
         assertThrows(AccessDeniedException.class,
             () -> service.createRole(RoleDto.builder().name("x").build()));
-        verify(repository, never()).saveAndFlush(any());
-    }
-
-    @Test
-    void removePermission_unknownIdIs404() {
-        when(repository.findById(1L)).thenReturn(Optional.of(editable));
-
-        assertThrows(ResourceNotFoundException.class, () -> service.removePermission(1L, 123L));
-    }
-
-    @Test
-    void removePermission_removesMatchingGrant() {
-        Permission keep = editable.addPermission("User", "firstName", Operation.READ);
-        keep.setId(10L);
-        Permission drop = editable.addPermission("User", "lastName", Operation.READ);
-        drop.setId(11L);
-        when(repository.findById(1L)).thenReturn(Optional.of(editable));
-
-        service.removePermission(1L, 11L);
-
-        assertEquals(Set.of("User:firstName:READ"), keys(editable));
+        verify(repository, never()).save(any());
     }
 }
