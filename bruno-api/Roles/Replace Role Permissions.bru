@@ -1,0 +1,30 @@
+meta {
+  name: Replace Role Permissions
+  type: http
+  seq: 3
+}
+
+put {
+  url: http://localhost:8080/api/v1/roles/{{roleId}}/permissions
+  body: json
+  auth: inherit
+}
+
+body:json {
+  [
+    { "entity": "User",           "field": "*",        "operation": "READ" },
+    { "entity": "ComputerSystem", "field": "hostname", "operation": "READ" },
+    { "entity": "ComputerSystem", "field": "*",        "operation": "CREATE" }
+  ]
+}
+
+docs {
+  Makes the role's permissions exactly this list. `field` defaults to "*";
+  unknown entities or fields are rejected with 400. System roles (SuperAdmin)
+  return 409.
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

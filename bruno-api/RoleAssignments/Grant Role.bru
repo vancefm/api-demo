@@ -1,0 +1,30 @@
+meta {
+  name: Grant Role
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:8080/api/v1/users/{{userId}}/role-assignments
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "roleId": {{roleId}},
+    "departmentId": {{departmentId}}
+  }
+}
+
+docs {
+  Grants roleId to the user within departmentId. Omit departmentId for a
+  global grant (applies everywhere, including non-departmental entities such
+  as roles). Set the `userId`, `roleId` and `departmentId` collection/environment
+  variables first (Create Department User Role stores `roleId`).
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

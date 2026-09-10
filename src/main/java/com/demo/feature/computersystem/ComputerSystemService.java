@@ -2,6 +2,10 @@ package com.demo.feature.computersystem;
 
 import com.demo.feature.department.DepartmentLinks;
 import com.demo.feature.department.DepartmentService;
+import com.demo.feature.department.DepartmentSpecifications;
+import com.demo.feature.security.rbac.access.AccessControl;
+import com.demo.feature.security.rbac.access.FieldDiff;
+import com.demo.feature.security.rbac.role.Operation;
 import com.demo.feature.user.User;
 import com.demo.feature.user.UserRepository;
 import com.demo.platform.exception.DuplicateResourceException;
@@ -13,11 +17,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Service layer for managing computer systems with circuit breaker protection.
@@ -31,6 +38,11 @@ import java.util.List;
  * - Returns empty results gracefully
  * - Prevents cascading failures
  * - Allows database time to recover
+ *
+ * <p>Every operation is guarded by {@link AccessControl} against the
+ * {@code ComputerSystem} secured entity, scoped by the system's departments
+ * (see {@code UserManagementService} for the pattern). Access denials are on
+ * the breaker's ignore list — a 403 is not a database failure.
  */
 @Service
 @Transactional
@@ -39,10 +51,13 @@ import java.util.List;
 public class ComputerSystemService {
 
     private static final String NOT_FOUND = " not found";
+    private static final String COMPUTER_SYSTEM = ComputerSystemSecuredEntity.NAME;
+
     private final ComputerSystemRepository repository;
     private final UserRepository userRepository;
     private final DepartmentService departmentService;
     private final ComputerSystemMapper mapper;
+    private final AccessControl accessControl;
 
     /**
      * Creates new computer system with database circuit breaker protection.
@@ -56,6 +71,10 @@ public class ComputerSystemService {
      */
     @CircuitBreaker(name = "databaseQuery", fallbackMethod = "createComputerSystemFallback")
     public ComputerSystemDto createComputerSystem(ComputerSystemDto dto) {
+        Set<Long> scope = accessControl.scopeOf(COMPUTER_SYSTEM, dto);
+        accessControl.requireAccess(COMPUTER_SYSTEM, Operation.CREATE, scope);
+        accessControl.requireFieldAccess(COMPUTER_SYSTEM, Operation.CREATE, FieldDiff.suppliedFields(dto), scope);
+
         if (repository.findByHostname(dto.getHostname()).isPresent()) {
             throw new DuplicateResourceException("Computer system with hostname " + dto.getHostname() + " already exists");
         }
@@ -75,7 +94,7 @@ public class ComputerSystemService {
         setDepartmentLinks(computerSystem, dto.getDepartmentIds());
         ComputerSystem savedSystem = repository.save(computerSystem);
 
-        return mapper.toDto(savedSystem);
+        return accessControl.filterReadable(COMPUTER_SYSTEM, mapper.toDto(savedSystem));
     }
 
     /**
@@ -98,10 +117,7 @@ public class ComputerSystemService {
     @Transactional(readOnly = true)
     @CircuitBreaker(name = "databaseQuery", fallbackMethod = "getComputerSystemByIdFallback")
     public ComputerSystemDto getComputerSystemById(Long id) {
-        ComputerSystem computerSystem = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Computer system with id " + id + NOT_FOUND));
-
-        return mapper.toDto(computerSystem);
+        return readable(load(id));
     }
 
     /**
@@ -115,6 +131,7 @@ public class ComputerSystemService {
 
     /**
      * Retrieves all computer systems with pagination and circuit breaker protection.
+     * Restricted to the departments the caller may read (everything for a global grant).
      *
      * @param pageable Pagination parameters
      * @return Page of computer systems
@@ -122,7 +139,9 @@ public class ComputerSystemService {
     @Transactional(readOnly = true)
     @CircuitBreaker(name = "databaseQuery", fallbackMethod = "getAllComputerSystemsFallback")
     public Page<ComputerSystemDto> getAllComputerSystems(Pageable pageable) {
-        return repository.findAll(pageable).map(mapper::toDto);
+        return repository.findAll(readScope(), pageable)
+            .map(mapper::toDto)
+            .map(dto -> accessControl.filterReadable(COMPUTER_SYSTEM, dto));
     }
 
     /**
@@ -138,6 +157,7 @@ public class ComputerSystemService {
 
     /**
      * Filters computer systems by hostname, department ID, or user ID with circuit breaker protection.
+     * Results are additionally restricted to what the caller may read.
      *
      * @param hostname Hostname to filter by
      * @param departmentId Department ID to filter by (membership in the department)
@@ -152,9 +172,12 @@ public class ComputerSystemService {
             Long departmentId,
             Long userId,
             Pageable pageable) {
+        Specification<ComputerSystem> filters =
+            ComputerSystemSpecifications.withFilters(hostname, departmentId, userId);
         return repository
-                .findAll(ComputerSystemSpecifications.withFilters(hostname, departmentId, userId), pageable)
-                .map(mapper::toDto);
+                .findAll(filters.and(readScope()), pageable)
+                .map(mapper::toDto)
+                .map(dto -> accessControl.filterReadable(COMPUTER_SYSTEM, dto));
     }
 
     /**
@@ -182,8 +205,15 @@ public class ComputerSystemService {
      */
     @CircuitBreaker(name = "databaseQuery", fallbackMethod = "updateComputerSystemFallback")
     public ComputerSystemDto updateComputerSystem(Long id, ComputerSystemDto dto) {
-        ComputerSystem computerSystem = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Computer system with id " + id + NOT_FOUND));
+        ComputerSystem computerSystem = load(id);
+        ComputerSystemDto stored = mapper.toDto(computerSystem);
+
+        // Allowed where the system is now and where the request moves it.
+        Set<Long> scope = new HashSet<>(accessControl.scopeOf(COMPUTER_SYSTEM, stored));
+        scope.addAll(accessControl.scopeOf(COMPUTER_SYSTEM, dto));
+        accessControl.requireAccess(COMPUTER_SYSTEM, Operation.UPDATE, scope);
+        accessControl.retainUnreadable(COMPUTER_SYSTEM, stored, dto, scope);
+        accessControl.requireFieldAccess(COMPUTER_SYSTEM, Operation.UPDATE, FieldDiff.changedFields(stored, dto), scope);
 
         if (!computerSystem.getHostname().equals(dto.getHostname()) &&
             repository.findByHostname(dto.getHostname()).isPresent()) {
@@ -208,7 +238,7 @@ public class ComputerSystemService {
 
         ComputerSystem updatedSystem = repository.save(computerSystem);
 
-        return mapper.toDto(updatedSystem);
+        return accessControl.filterReadable(COMPUTER_SYSTEM, mapper.toDto(updatedSystem));
     }
 
     /**
@@ -228,11 +258,11 @@ public class ComputerSystemService {
      */
     @CircuitBreaker(name = "databaseQuery", fallbackMethod = "deleteComputerSystemFallback")
     public void deleteComputerSystem(Long id) {
-        if (!repository.existsById(id)) {
-            throw new ResourceNotFoundException("Computer system with id " + id + NOT_FOUND);
-        }
+        ComputerSystem computerSystem = load(id);
+        accessControl.requireAccess(COMPUTER_SYSTEM, Operation.DELETE,
+            accessControl.scopeOf(COMPUTER_SYSTEM, mapper.toDto(computerSystem)));
 
-        repository.deleteById(id);
+        repository.delete(computerSystem);
     }
 
     /**
@@ -277,7 +307,7 @@ public class ComputerSystemService {
         ComputerSystem computerSystem = repository.findByHostname(hostname)
                 .orElseThrow(() -> new ResourceNotFoundException("Computer system with hostname " + hostname + NOT_FOUND));
 
-        return mapper.toDto(computerSystem);
+        return readable(computerSystem);
     }
 
     /**
@@ -288,5 +318,25 @@ public class ComputerSystemService {
         log.error("Database circuit breaker OPEN: Cannot retrieve computer system {} - database unavailable", hostname);
         throw new RuntimeException("Database service temporarily unavailable. Please try again later.");
     }
-}
 
+    private ComputerSystem load(Long id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Computer system with id " + id + NOT_FOUND));
+    }
+
+    /**
+     * Maps a loaded system for the caller: 403 unless they may read it in one of
+     * its departments, then masked to their readable fields.
+     */
+    private ComputerSystemDto readable(ComputerSystem computerSystem) {
+        ComputerSystemDto dto = mapper.toDto(computerSystem);
+        accessControl.requireAccess(COMPUTER_SYSTEM, Operation.READ, accessControl.scopeOf(COMPUTER_SYSTEM, dto));
+        return accessControl.filterReadable(COMPUTER_SYSTEM, dto);
+    }
+
+    private Specification<ComputerSystem> readScope() {
+        return accessControl.readableDepartments(COMPUTER_SYSTEM)
+            .<Specification<ComputerSystem>>map(DepartmentSpecifications::assignedToAnyDepartment)
+            .orElseGet(Specification::unrestricted);
+    }
+}

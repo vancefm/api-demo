@@ -3,6 +3,10 @@ package com.demo.feature.department;
 import com.demo.feature.computersystem.ComputerSystem;
 import com.demo.feature.computersystem.ComputerSystemDepartment;
 import com.demo.feature.computersystem.ComputerSystemRepository;
+import com.demo.feature.security.rbac.role.Role;
+import com.demo.feature.security.rbac.assignment.RoleAssignment;
+import com.demo.feature.security.rbac.assignment.RoleAssignmentRepository;
+import com.demo.feature.security.rbac.role.RoleRepository;
 import com.demo.feature.user.User;
 import com.demo.feature.user.UserDepartment;
 import com.demo.feature.user.UserRepository;
@@ -42,11 +46,18 @@ class DepartmentCascadeIT {
     private ComputerSystemRepository computerSystemRepository;
 
     @Autowired
+    private RoleRepository roleRepository;
+
+    @Autowired
+    private RoleAssignmentRepository roleAssignmentRepository;
+
+    @Autowired
     private EntityManager entityManager;
 
     private Department department;
     private User user;
     private ComputerSystem computerSystem;
+    private Role role;
 
     @BeforeEach
     void setUp() {
@@ -80,6 +91,12 @@ class DepartmentCascadeIT {
             .build());
         computerSystem = computerSystemRepository.save(computerSystem);
 
+        role = roleRepository.save(Role.builder().name("Department User").build());
+        // One department-scoped grant (must go with the department) and one global
+        // grant (must survive it).
+        roleAssignmentRepository.save(RoleAssignment.builder().user(user).role(role).department(department).build());
+        roleAssignmentRepository.save(RoleAssignment.builder().user(user).role(role).department(null).build());
+
         entityManager.flush();
         entityManager.clear();
     }
@@ -94,10 +111,13 @@ class DepartmentCascadeIT {
             "user_departments rows should be cascaded by the department FK");
         assertEquals(0, countLinks("computer_system_departments"),
             "computer_system_departments rows should be cascaded by the department FK");
+        assertEquals(1, countLinks("role_assignments"),
+            "the department-scoped grant goes; the global grant stays");
 
         // The owners themselves must survive — only the association is removed.
         assertTrue(userRepository.findById(user.getId()).isPresent());
         assertTrue(computerSystemRepository.findById(computerSystem.getId()).isPresent());
+        assertTrue(roleRepository.findById(role.getId()).isPresent());
     }
 
     @Test
@@ -116,6 +136,7 @@ class DepartmentCascadeIT {
     void departmentForeignKeysAreDeclaredOnDeleteCascade() {
         assertEquals("CASCADE", deleteRuleFor("computer_system_departments"));
         assertEquals("CASCADE", deleteRuleFor("user_departments"));
+        assertEquals("CASCADE", deleteRuleFor("role_assignments"));
     }
 
     private long countLinks(String table) {

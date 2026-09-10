@@ -6,6 +6,7 @@ import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -42,6 +43,42 @@ public final class DepartmentSpecifications {
                 .where(cb.equal(link.get("department").get("id"), departmentId));
             return cb.exists(subquery);
         };
+    }
+
+    /**
+     * Membership in <em>any</em> of the given departments, for any owner entity
+     * whose department links are mapped as {@value #LINKS}. Used by the RBAC
+     * layer to restrict paged reads to the departments a caller may read.
+     *
+     * <p>An empty collection matches nothing (a caller with no readable
+     * departments sees an empty page). Same EXISTS shape as
+     * {@link #assignedToDepartment}, so an owner in several of the departments
+     * is still counted once.
+     */
+    public static <T> Specification<T> assignedToAnyDepartment(Collection<Long> departmentIds) {
+        if (departmentIds.isEmpty()) {
+            return (root, query, cb) -> cb.disjunction();
+        }
+        return (root, query, cb) -> {
+            Subquery<Integer> subquery = query.subquery(Integer.class);
+            Root<T> correlated = subquery.correlate(root);
+            Join<Object, Object> link = correlated.join(LINKS);
+            subquery.select(cb.literal(1))
+                .where(link.get("department").get("id").in(departmentIds));
+            return cb.exists(subquery);
+        };
+    }
+
+    /**
+     * Departments whose own id is in the set — the department entity's version
+     * of a read scope (a department <em>is</em> its own scope). Empty matches
+     * nothing.
+     */
+    static Specification<Department> idIn(Collection<Long> departmentIds) {
+        if (departmentIds.isEmpty()) {
+            return (root, query, cb) -> cb.disjunction();
+        }
+        return (root, query, cb) -> root.get("id").in(departmentIds);
     }
 
     /**
