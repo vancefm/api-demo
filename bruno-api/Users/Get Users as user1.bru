@@ -1,0 +1,27 @@
+meta {
+  name: Get Users as user1
+  type: http
+  seq: 2
+}
+
+get {
+  url: http://localhost:8080/api/v1/users
+  body: none
+  auth: basic
+}
+
+auth:basic {
+  username: user1
+  password: password1
+}
+
+docs {
+  The same call as an ordinary directory user. Before any grant: 200 with an
+  empty page. After "Grant Role" for user1 in a department: only that
+  department's users, with only the fields the role may read.
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

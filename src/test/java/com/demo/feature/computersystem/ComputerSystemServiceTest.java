@@ -3,6 +3,8 @@ package com.demo.feature.computersystem;
 import com.demo.feature.department.Department;
 import com.demo.feature.department.DepartmentMapper;
 import com.demo.feature.department.DepartmentService;
+import com.demo.feature.security.rbac.access.AccessControl;
+import com.demo.feature.security.rbac.role.Operation;
 import com.demo.feature.user.User;
 import com.demo.feature.user.UserRepository;
 import com.demo.platform.exception.DuplicateResourceException;
@@ -16,6 +18,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.Arrays;
 import java.util.List;
@@ -24,6 +28,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,6 +44,9 @@ class ComputerSystemServiceTest {
     @Mock
     private DepartmentService departmentService;
 
+    @Mock
+    private AccessControl accessControl;
+
     private ComputerSystemMapper mapper;
 
     private ComputerSystemService service;
@@ -50,7 +59,10 @@ class ComputerSystemServiceTest {
     @BeforeEach
     void setUp() {
         mapper = new ComputerSystemMapper(new DepartmentMapper());
-        service = new ComputerSystemService(repository, userRepository, departmentService, mapper);
+        service = new ComputerSystemService(repository, userRepository, departmentService, mapper, accessControl);
+        // Permissive access control: require* are no-ops, readableDepartments()
+        // is Optional.empty() (global) and masking is an identity.
+        lenient().when(accessControl.filterReadable(anyString(), any())).thenAnswer(inv -> inv.getArgument(1));
 
         testUser = User.builder()
                 .id(1L)
@@ -145,7 +157,7 @@ class ComputerSystemServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         Page<ComputerSystem> page = new PageImpl<>(Arrays.asList(testComputerSystem), pageable, 1);
 
-        when(repository.findAll(pageable)).thenReturn(page);
+        when(repository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
 
         Page<ComputerSystemDto> result = service.getAllComputerSystems(pageable);
 
@@ -170,23 +182,44 @@ class ComputerSystemServiceTest {
 
     @Test
     void testDeleteComputerSystem_Success() {
-        when(repository.existsById(1L)).thenReturn(true);
-        doNothing().when(repository).deleteById(1L);
+        when(repository.findById(1L)).thenReturn(Optional.of(testComputerSystem));
 
         service.deleteComputerSystem(1L);
 
-        verify(repository, times(1)).deleteById(1L);
+        verify(repository, times(1)).delete(testComputerSystem);
     }
 
     @Test
     void testDeleteComputerSystem_NotFound() {
-        when(repository.existsById(99L)).thenReturn(false);
+        when(repository.findById(99L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> {
             service.deleteComputerSystem(99L);
         });
 
-        verify(repository, never()).deleteById(any());
+        verify(repository, never()).delete(any(ComputerSystem.class));
+    }
+
+    @Test
+    void testDeleteComputerSystem_DeniedDeletesNothing() {
+        when(repository.findById(1L)).thenReturn(Optional.of(testComputerSystem));
+        doThrow(new AccessDeniedException("Not permitted to DELETE ComputerSystem in department(s) [1]"))
+            .when(accessControl).requireAccess(eq("ComputerSystem"), eq(Operation.DELETE), any());
+
+        assertThrows(AccessDeniedException.class, () -> service.deleteComputerSystem(1L));
+
+        verify(repository, never()).delete(any(ComputerSystem.class));
+    }
+
+    @Test
+    void testCreateComputerSystem_DeniedBeforeDuplicateChecks() {
+        doThrow(new AccessDeniedException("Not permitted to CREATE ComputerSystem in department(s) [1]"))
+            .when(accessControl).requireAccess(eq("ComputerSystem"), eq(Operation.CREATE), any());
+
+        assertThrows(AccessDeniedException.class, () -> service.createComputerSystem(testDto));
+
+        verify(repository, never()).findByHostname(any());
+        verify(repository, never()).save(any(ComputerSystem.class));
     }
 
     @Test

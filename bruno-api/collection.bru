@@ -1,0 +1,16 @@
+auth {
+  mode: basic
+}
+
+auth:basic {
+  username: admin
+  password: admin123
+}
+
+docs {
+  Every /api/** request needs HTTP Basic credentials that bind against the
+  embedded LDAP server (see README, "Authentication (embedded LDAP)"). The
+  collection authenticates as the bootstrap SuperAdmin `admin`; override the
+  auth on a request to try a less privileged directory user such as
+  user1/password1 (no grants until a SuperAdmin assigns a role).
+}

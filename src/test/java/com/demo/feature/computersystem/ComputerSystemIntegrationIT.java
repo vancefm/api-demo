@@ -4,12 +4,14 @@ import com.demo.feature.department.Department;
 import com.demo.feature.department.DepartmentRepository;
 import com.demo.feature.user.UserRepository;
 import com.demo.feature.user.User;
+import com.demo.testsupport.AsAdminMockMvc;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(AsAdminMockMvc.class)
 class ComputerSystemIntegrationIT {
 
     @Autowired

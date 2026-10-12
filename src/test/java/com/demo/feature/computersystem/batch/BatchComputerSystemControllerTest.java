@@ -58,6 +58,29 @@ class BatchComputerSystemControllerTest {
     private ComputerSystemDto testDto1;
     private ComputerSystemDto testDto2;
 
+    /**
+     * An access denial on any item surfaces as a single 403 for the whole
+     * batch; the service-level rollback is exercised against a real database in
+     * {@code ComputerSystemRbacIT}.
+     */
+    @Test
+    void batchCreate_accessDeniedOnAnyItemIs403() throws Exception {
+        when(service.createComputerSystem(any(ComputerSystemDto.class)))
+                .thenReturn(testDto1)
+                .thenThrow(new org.springframework.security.access.AccessDeniedException(
+                        "Not permitted to CREATE ComputerSystem in department(s) [2]"));
+
+        mockMvc.perform(post("/api/v1/computer-systems/batch/create")
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(
+                        java.util.Map.of("items", List.of(testDto1, testDto2))))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.title", is("Forbidden")))
+                .andExpect(jsonPath("$.detail", containsString("department(s) [2]")));
+
+        verify(service, times(2)).createComputerSystem(any(ComputerSystemDto.class));
+    }
+
     @BeforeEach
     void setUp() {
         // Default batch max items to 100

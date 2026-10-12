@@ -1,0 +1,71 @@
+# Directory loaded into the embedded LDAP server at startup (see app.ldap.* in
+# application.yml). This is the application's only credential store.
+#
+# Authorization is NOT derived from this file: there are no groups here on
+# purpose. A directory user who logs in for the first time is provisioned into
+# the users table with no role assignments and can do nothing until a
+# SuperAdmin grants them a Department:Role pair (see README, "First-time use").
+#
+# uid      password    notes
+# admin    admin123    bootstrap SuperAdmin (app.rbac.bootstrap.username)
+# user1    password1   ordinary user, no grants
+# user2    password2   ordinary user, no grants
+# user3    password3   ordinary user, no grants
+
+dn: dc=demo,dc=com
+objectClass: top
+objectClass: domain
+dc: demo
+
+dn: ou=people,dc=demo,dc=com
+objectClass: top
+objectClass: organizationalUnit
+ou: people
+
+dn: uid=admin,ou=people,dc=demo,dc=com
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: admin
+cn: Ada Admin
+givenName: Ada
+sn: Admin
+mail: admin@example.com
+userPassword: admin123
+
+dn: uid=user1,ou=people,dc=demo,dc=com
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: user1
+cn: User One
+givenName: User
+sn: One
+mail: user1@example.com
+userPassword: password1
+
+dn: uid=user2,ou=people,dc=demo,dc=com
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: user2
+cn: User Two
+givenName: User
+sn: Two
+mail: user2@example.com
+userPassword: password2
+
+dn: uid=user3,ou=people,dc=demo,dc=com
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: user3
+cn: User Three
+givenName: User
+sn: Three
+mail: user3@example.com
+userPassword: password3

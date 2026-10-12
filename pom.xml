@@ -140,11 +140,11 @@
             <artifactId>spring-security-ldap</artifactId>
         </dependency>
 
-        <!-- Embedded LDAP server for testing -->
+        <!-- Embedded LDAP server: the application's authentication source (see
+             feature/security/ldap/EmbeddedLdapConfig), so runtime scope, not test. -->
         <dependency>
             <groupId>com.unboundid</groupId>
             <artifactId>unboundid-ldapsdk</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
