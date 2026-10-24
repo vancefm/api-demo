@@ -75,6 +75,16 @@ declares no `ErrorResponse`, so `GlobalExceptionHandler` can use Spring's withou
 **Avoid:** when asserting "no authorities", filter out `FACTOR_*` first — it is framework metadata,
 not a directory group.
 
+### A `PermissionEvaluator` bean does nothing without `@EnableMethodSecurity`
+**Believed:** declaring a `PermissionEvaluator` `@Component` made `@PreAuthorize("hasPermission(...)")`
+work, and its unit test proved it.
+**Actually:** without `@EnableMethodSecurity`, `@PreAuthorize` is never processed — the annotated
+method runs for everyone, with no error. A unit test that calls the evaluator directly bypasses the
+annotation path, so it cannot catch the missing wiring. `RbacPermissionEvaluator` shipped this way
+and was deleted unused.
+**Avoid:** prove any annotation-driven security with an integration test that sends a request
+through the annotated method and expects a 403. Enforcement here stays in `AccessControl`.
+
 ## Testing
 
 ### `jsonPath` on an array needs a collection matcher
@@ -107,7 +117,9 @@ front.
 **Actually:** `docs/` is read by newcomers who need the design as it is. Change-over-time notes make
 them reconstruct the present from a sequence of edits.
 **Avoid:** rewrite the affected passage in the present tense. History belongs in commit messages and
-the README's "Recent Updates" changelog.
+the README's "Recent Updates" changelog. Deleted code is the exception: remove every mention of it
+from `README.md` and `docs/`, old changelog bullets included, and write no removal note — the docs
+read as if it was never there (corrected when `RbacPermissionEvaluator` was deleted).
 
 ### `cd` inside a Bash tool call persists
 **Believed:** each Bash invocation started in the project root.

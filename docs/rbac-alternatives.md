@@ -30,14 +30,15 @@ Spring Security 7.1 is already on the classpath and offers more than this codeba
 | Capability | Stock mechanism | Used here? |
 |---|---|---|
 | Roles/permissions from a database | `UserDetailsService` + `GrantedAuthority` | No — grants are resolved per request instead |
-| Object-level check hook | `PermissionEvaluator` + `hasPermission()` SpEL | **Yes** — see `RbacPermissionEvaluator` |
+| Object-level check hook | `PermissionEvaluator` + `hasPermission()` SpEL | No — services call `AccessControl` directly |
 | Field-level read masking | `@AuthorizeReturnObject` + `@HandleAuthorizationDenied` + `NullReturningMethodAuthorizationDeniedHandler` | No — `FieldAccessFilter` does it directly |
 | Collection filtering | `@PostFilter` | No, deliberately |
 
 **What it genuinely provides.** Loading permissions from the database into the `Authentication` is
-free. So is an object-level hook: `PermissionEvaluator` is the designed extension point, and an
-adapter over `AccessControl` implements it, so `hasPermission(#dto, 'UPDATE')` works in SpEL for
-anyone who prefers annotations.
+free. So is an object-level hook: `PermissionEvaluator` is the designed extension point for
+`hasPermission(#dto, 'UPDATE')` in SpEL. It is not used, because an annotation can only make an
+entity-level yes/no check, and every guarded operation here also needs the field diff, the union of
+current and requested scope, or response masking.
 
 Most notably, since 6.3 Spring Security **does** offer field-level read masking. `@AuthorizeReturnObject`
 proxies a returned object and applies `@PreAuthorize` on its getters; `@HandleAuthorizationDenied`
@@ -94,9 +95,9 @@ So the layer is hand-written, and kept as small as the requirements allow:
   survive. No hand-written diff is needed. See the data model in [rbac.md](rbac.md).
 - **One route to edit permissions.** `PUT /api/v1/roles/{id}/permissions` replaces the whole set; a
   longer list adds a grant and a shorter one removes it. There are no add-one or remove-one routes.
-- **A `PermissionEvaluator` is registered**, so annotation-style checks are available where they
-  fit. The services still call `AccessControl` directly, because an annotation cannot express the
-  field diff, the union of current and requested scope, or response masking.
+- **One way to check access.** Services call `AccessControl` directly; there is no
+  `@PreAuthorize` / `hasPermission` route, because an annotation cannot express the field diff,
+  the union of current and requested scope, or response masking.
 
 ## Also considered, and rejected
 

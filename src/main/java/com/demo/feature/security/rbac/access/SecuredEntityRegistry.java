@@ -36,16 +36,6 @@ public class SecuredEntityRegistry {
         return Optional.ofNullable(byName.get(name));
     }
 
-    /**
-     * Looks a descriptor up by its DTO type, for callers that hold an object
-     * rather than an entity name (see {@link RbacPermissionEvaluator}).
-     */
-    public Optional<SecuredEntity<?>> findByDtoClass(Class<?> dtoClass) {
-        return byName.values().stream()
-            .filter(secured -> secured.dtoClass().equals(dtoClass))
-            .findFirst();
-    }
-
     public SecuredEntity<?> require(String name) {
         return find(name).orElseThrow(() ->
             new InvalidRequestException("Unknown secured entity '" + name + "'; known entities: " + byName.keySet()));

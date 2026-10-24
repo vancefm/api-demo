@@ -1773,8 +1773,6 @@ spec:
   replacing a role's permissions is a clear-and-add instead of a hand-written diff.
 - **One route to edit permissions**: `PUT /api/v1/roles/{id}/permissions` replaces the whole set;
   the redundant add-one and remove-one routes were removed.
-- **Registered a `PermissionEvaluator`**, so `hasPermission(#dto, 'UPDATE')` works in SpEL alongside
-  the explicit service-layer checks.
 - **Fixed a pre-existing error-handling bug**: the catch-all handler converted Spring's own MVC
   exceptions into `500`s with a critical-alert email, so a wrong HTTP method returned 500 instead of
   405. They now pass through with their intrinsic status. Deleted the unused `ErrorResponse` class,
@@ -2002,8 +2000,7 @@ feature/
         │                  //   RoleAssignmentService, RoleAssignmentController (/api/v1/users/{id}/role-assignments),
         │                  //   RoleAssignmentSecuredEntity
         ├── access/        // the decision engine: AccessControl, EffectivePermissions, FieldDiff, FieldAccessFilter,
-        │                  //   the extension point SecuredEntity/SecuredEntityRegistry, and
-        │                  //   RbacPermissionEvaluator (Spring Security's hasPermission hook)
+        │                  //   and the extension point SecuredEntity/SecuredEntityRegistry
         └── bootstrap/     // RbacBootstrap, RbacProperties (app.rbac.*)
 ```
 

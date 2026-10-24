@@ -72,7 +72,6 @@ Key classes:
 
 | Concern | Class | Package |
 |---|---|---|
-| SpEL adapter (`hasPermission`) | `RbacPermissionEvaluator` | `feature.security.rbac.access` |
 | Directory + provider | `EmbeddedLdapConfig`, `LdapProperties` | `feature.security.ldap` |
 | Identity | `UserPrincipal`, `CurrentUser`, `AppUserDetailsContextMapper`, `ProblemDetailAuthenticationEntryPoint` | `feature.security.auth` |
 | Decision API | `AccessControl` | `feature.security.rbac.access` |
@@ -542,7 +541,6 @@ for `Widget` and any of its DTO fields, and `requireKnown` will reject anything 
 | Permission validation against DTO fields | `SecuredEntityRegistryTest`, `RoleServiceTest`, `RoleIntegrationIT` |
 | List scoping without row fan-out | `DepartmentSpecificationsIT` |
 | Data model: permissions round-trip by business key, replace keeps survivors' ids, `ON DELETE CASCADE` on every FK | `RoleRepositoryIT`, `RoleAssignmentRepositoryIT`, `DepartmentCascadeIT` |
-| `hasPermission(...)` SpEL adapter | `RbacPermissionEvaluatorTest` |
 | Authentication, JIT provisioning, 401 shape, open actuator | `AuthenticationIT`, `EmbeddedLdapAuthenticationIT`, `AppUserDetailsContextMapperTest` |
 | Seed and idempotence | `RbacBootstrapIT` |
 | End-to-end scenarios | `UserRbacIT` (worked example), `DepartmentRbacIT`, `ComputerSystemRbacIT` (batch all-or-nothing, non-transactional on purpose), `RbacManagementIT` |
