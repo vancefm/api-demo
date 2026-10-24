@@ -13,8 +13,8 @@ import java.util.Comparator;
 public class RoleMapper {
 
     /**
-     * Permissions are values with no id, so JSON order is made deterministic by
-     * sorting on the grant itself — Set iteration order is undefined.
+     * JSON order is made deterministic by sorting on the grant itself — Set
+     * iteration order is undefined, and new grants have no id until flushed.
      */
     private static final Comparator<PermissionDto> BY_GRANT =
         Comparator.comparing(PermissionDto::getEntity)

@@ -1,14 +1,11 @@
 package com.demo.feature.security.rbac.role;
 
 import com.demo.platform.BaseEntity;
-import jakarta.persistence.CollectionTable;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -16,9 +13,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.BatchSize;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -53,28 +49,22 @@ public class Role extends BaseEntity {
     private boolean system = false;
 
     /**
-     * The grants this role carries, held as values rather than entities (see
-     * {@link Permission}). Hibernate writes them to the {@code role_permissions}
-     * collection table and rewrites the whole collection when it changes, so
-     * replacing a role's permissions needs no diffing and cannot trip the
-     * unique constraint. {@link OnDelete} makes the database drop the rows with
-     * the role, and {@link BatchSize} keeps a page of roles at a bounded number
-     * of queries (the fetching rule in {@code UserRepository}).
+     * The grants this role carries, owned outright: {@code orphanRemoval}
+     * deletes a grant dropped from the set, and the {@code ON DELETE CASCADE} on
+     * {@link Permission#getRole()} makes the database drop them with the role.
+     * {@link BatchSize} keeps a page of roles at a bounded number of queries (the
+     * fetching rule in {@code UserRepository}). Change it through
+     * {@link #addPermission} and {@link #replacePermissions}, which set the back
+     * reference; a grant added to the set directly has no {@code role_id}.
      */
-    @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(
-        name = "role_permissions",
-        joinColumns = @JoinColumn(name = "role_id"),
-        uniqueConstraints = @UniqueConstraint(
-            name = "uk_role_permission",
-            columnNames = {"role_id", "entity_name", "field_name", "operation"}))
-    @OnDelete(action = OnDeleteAction.CASCADE)
+    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true)
     @BatchSize(size = 50)
     @Builder.Default
     private Set<Permission> permissions = new HashSet<>();
 
     /**
-     * Adds a grant, returning it. A duplicate is silently absorbed by the set.
+     * Adds a grant, returning the one the role now holds: an equal grant
+     * already present is kept and returned rather than duplicated.
      */
     public Permission addPermission(String entity, String field, Operation operation) {
         Permission permission = Permission.builder()
@@ -82,7 +72,26 @@ public class Role extends BaseEntity {
             .field(field)
             .operation(operation)
             .build();
+        for (Permission existing : permissions) {
+            if (existing.equals(permission)) {
+                return existing;
+            }
+        }
+        permission.setRole(this);
         permissions.add(permission);
         return permission;
+    }
+
+    /**
+     * Makes the role's grants exactly {@code desired}, matched by business key.
+     * Retain-then-add rather than clear-and-add: surviving grants keep their row
+     * and id, so only genuine removals are deleted and only genuine additions
+     * inserted. Clear-and-add would re-insert every survivor, and because
+     * Hibernate flushes inserts before deletes those inserts hit
+     * {@code uk_role_permission}.
+     */
+    public void replacePermissions(Collection<Permission> desired) {
+        permissions.retainAll(desired);
+        desired.forEach(p -> addPermission(p.getEntity(), p.getField(), p.getOperation()));
     }
 }

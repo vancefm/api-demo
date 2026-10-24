@@ -13,13 +13,13 @@ Format: what was believed → what is actually true → how to avoid it.
 ### Hibernate flushes inserts before deletes
 **Believed:** replacing an owned `@OneToMany` collection could be done by clearing it and adding the
 new members.
-**Actually:** within one flush, Hibernate issues the inserts first, so re-submitting a member that
-already exists violates a unique constraint before the delete of the old row runs. This forced a
-hand-written id-preserving diff in `RoleService`.
-**Avoid:** for a set of *values* with no identity, map it as `@ElementCollection` of an
-`@Embeddable`. Hibernate rewrites the whole collection table, clear-and-add is correct, and equal
-values collapse in the `Set` before reaching the database. Reserve entity collections for members
-with their own lifecycle. (Fixed 2026-09-10 — permissions are now values.)
+**Actually:** within one flush, Hibernate issues the inserts first. Re-adding a member that already
+exists violates the unique constraint before the delete of its old row runs.
+**Avoid:** never clear-and-add an entity collection that has a unique key. Give the entity
+business-key `equals`/`hashCode`, then reconcile with `retainAll(desired)` followed by add-if-absent.
+Members that survive keep their row and id, so nothing is re-inserted. `Role.replacePermissions` is
+the pattern, and `RoleRepositoryIT` guards it. An `@ElementCollection` of `@Embeddable` values also
+avoids the problem, because Hibernate rewrites the whole table.
 
 ### `saveAndFlush` merges rather than flushing your instance
 **Believed:** `saveAndFlush(managedEntity)` would flush and populate ids on the objects held in
@@ -59,15 +59,15 @@ message that does not name the real cause.
 and friends, turning a 405 or 404 into a 500 — and, here, emailing the admin a critical alert for
 every client typo.
 **Avoid:** in the catch-all, check `instanceof org.springframework.web.ErrorResponse` first and
-return that exception's intrinsic status without alerting. (Fixed 2026-09-10.)
+return that exception's intrinsic status without alerting. `GlobalExceptionHandler` does this.
 
 ### A single-type import shadows a same-package class
 **Believed:** importing `org.springframework.web.ErrorResponse` into a package that already declares
 its own `ErrorResponse` would be a compile error.
 **Actually:** it compiles — the explicit import wins — but the IDE and any reader see two different
 types with one name.
-**Avoid:** fully qualify one of them, or delete the redundant class. Here the local `ErrorResponse`
-was dead since the ProblemDetail migration and was removed.
+**Avoid:** fully qualify one of them, or delete the redundant class. `com.demo.platform.exception`
+declares no `ErrorResponse`, so `GlobalExceptionHandler` can use Spring's without ambiguity.
 
 ### Spring Security 7 adds a `FACTOR_PASSWORD` authority
 **Believed:** a principal with no roles would have an empty authority collection.
@@ -93,12 +93,21 @@ and `httpBasic()` as a post-processor does not compose the way a raw header does
 ## Process
 
 ### Do not promise a size reduction without measuring
-**Believed:** converting permissions from entity to value would remove ~250 main and ~150 test lines.
-**Actually:** the first estimate assumed a different design (an opaque string column). The revised
-estimate of ~80/60 was closer; the real figure for the role package was ~50. Adding the optional
-`RbacPermissionEvaluator` then made the RBAC code **net larger** (+25 main, +134 test).
-**Avoid:** measure the before state, and count additions as well as deletions, before quoting a
-number. If a refactor is a modelling improvement rather than a size win, say that up front.
+**Believed:** a refactor's line savings can be estimated from what it deletes.
+**Actually:** estimates made that way run several times too high. They assume a simpler design than
+the one actually built, and they ignore what gets added in the same change, which can leave the code
+net larger.
+**Avoid:** measure the before state with `wc -l`, and count additions as well as deletions, before
+quoting a number. If a refactor is a modelling improvement rather than a size win, say that up
+front.
+
+### Docs describe the current state, not how it got there
+**Believed:** when a design changed, a doc's earlier description could stay, with a note like
+"later reversed: …".
+**Actually:** `docs/` is read by newcomers who need the design as it is. Change-over-time notes make
+them reconstruct the present from a sequence of edits.
+**Avoid:** rewrite the affected passage in the present tense. History belongs in commit messages and
+the README's "Recent Updates" changelog.
 
 ### `cd` inside a Bash tool call persists
 **Believed:** each Bash invocation started in the project root.

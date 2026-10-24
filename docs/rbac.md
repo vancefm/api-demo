@@ -99,7 +99,7 @@ erDiagram
     USERS ||--o{ ROLE_ASSIGNMENTS : "holds"
     ROLES ||--o{ ROLE_ASSIGNMENTS : "granted as"
     DEPARTMENTS |o--o{ ROLE_ASSIGNMENTS : "scoped to (null = global)"
-    ROLES ||--o{ ROLE_PERMISSIONS : "owns (values, not entities)"
+    ROLES ||--o{ ROLE_PERMISSIONS : "owns"
 
     USERS {
         bigint id PK
@@ -116,6 +116,7 @@ erDiagram
         boolean system_role "seeded; locked"
     }
     ROLE_PERMISSIONS {
+        bigint id PK
         bigint role_id FK "ON DELETE CASCADE"
         varchar entity_name "User | ComputerSystem | ... | *"
         varchar field_name "DTO property | *"
@@ -139,13 +140,14 @@ erDiagram
 
 Things to notice:
 
-- **A permission is a value, not an entity.** It has no id and no lifecycle of its own: three
-  strings that either match a request or do not. `Permission` is an `@Embeddable` held by
-  `Role.permissions` in an `@ElementCollection`, which Hibernate writes to the `role_permissions`
-  collection table. Two grants naming the same entity, field and operation are the same grant, so
-  the owning `Set` absorbs duplicates before they reach the database and the unique constraint is
-  only a backstop. Replacing a role's permissions is therefore a clear-and-add; Hibernate rewrites
-  the collection in one go. There is no `PermissionRepository` and nothing to diff.
+- **A permission has an id but is compared by what it grants.** `Permission` is an entity in
+  `role_permissions`, owned by `Role.permissions` (`cascade = ALL`, `orphanRemoval`). Its
+  `equals` is the business key (entity, field, operation), never the id: two grants naming the
+  same triple are the same grant, so the owning `Set` absorbs duplicates before they reach the
+  database and the unique constraint is only a backstop. `Role.replacePermissions` keeps the
+  surviving grants and adds the missing ones instead of clearing the set and adding back, because
+  Hibernate flushes inserts before deletes, so re-inserting a survivor would hit the unique key.
+  Surviving grants keep their row and id. There is no `PermissionRepository`.
 - **Every FK on `role_assignments` cascades.** Deleting a user, a role or a department silently
   removes the grants that referenced it. This is the same "deletion is never blocked" philosophy
   the department join tables follow, and it is asserted straight out of `INFORMATION_SCHEMA` by
@@ -539,7 +541,7 @@ for `Widget` and any of its DTO fields, and `requireKnown` will reject anything 
 | Masking and JSON omission | `FieldAccessFilterTest` |
 | Permission validation against DTO fields | `SecuredEntityRegistryTest`, `RoleServiceTest`, `RoleIntegrationIT` |
 | List scoping without row fan-out | `DepartmentSpecificationsIT` |
-| Data model: permissions round-trip as values, whole-set rewrite, `ON DELETE CASCADE` on every FK | `RoleRepositoryIT`, `RoleAssignmentRepositoryIT`, `DepartmentCascadeIT` |
+| Data model: permissions round-trip by business key, replace keeps survivors' ids, `ON DELETE CASCADE` on every FK | `RoleRepositoryIT`, `RoleAssignmentRepositoryIT`, `DepartmentCascadeIT` |
 | `hasPermission(...)` SpEL adapter | `RbacPermissionEvaluatorTest` |
 | Authentication, JIT provisioning, 401 shape, open actuator | `AuthenticationIT`, `EmbeddedLdapAuthenticationIT`, `AppUserDetailsContextMapperTest` |
 | Seed and idempotence | `RbacBootstrapIT` |

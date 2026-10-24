@@ -533,7 +533,7 @@ a role or a grant is hard-wired except the seeded `SuperAdmin` (see [First-time 
 | Table | Columns | Notes |
 |---|---|---|
 | `roles` | `name` (unique), `description`, `system_role` | `system_role` marks seeded roles: not renamable, deletable or re-permissionable |
-| `role_permissions` | `role_id`, `entity_name`, `field_name`, `operation` | a permission is a **value**, not an entity: no id, no lifecycle. Collection table owned by the role, unique per role, FK `ON DELETE CASCADE` |
+| `role_permissions` | `id`, `role_id`, `entity_name`, `field_name`, `operation`, `created_at`, `updated_at` | owned by the role (orphan removal), compared by entity/field/operation rather than id; unique per role, FK `ON DELETE CASCADE` |
 | `role_assignments` | `user_id`, `role_id`, `department_id` (nullable) | unique triple; all three FKs `ON DELETE CASCADE` |
 
 Deleting a role, a user or a department therefore silently removes the grants that referenced it —
@@ -1755,6 +1755,14 @@ spec:
 
 ## Recent Updates (June 2026)
 
+### Permission is an entity again (October 2026)
+- `role_permissions` rows now have an `id` primary key and audit columns (`Permission extends
+  BaseEntity`). Equality is still entity/field/operation, so duplicate grants still collapse and
+  the API is unchanged: `PermissionDto` carries no id, and `PUT .../permissions` is still the only
+  route.
+- Replacing a role's permissions keeps the rows of grants that survive, so their ids are stable
+  across a `PUT`.
+
 ### RBAC Simplification and Alternatives Review (September 2026)
 - **Recorded why the RBAC is hand-written** in [docs/rbac-alternatives.md](docs/rbac-alternatives.md):
   stock Spring Security, Spring Security ACL, jCasbin, the Zanzibar-style engines (OpenFGA, SpiceDB,
@@ -1987,7 +1995,7 @@ feature/
     ├── auth/                               // UserPrincipal, CurrentUser, AppUserDetailsContextMapper (JIT provisioning),
     │                                       //   ProblemDetailAuthenticationEntryPoint (401 as RFC 9457)
     └── rbac/
-        ├── role/          // Role + Permission (an @Embeddable value), Operation, RoleDto, PermissionDto,
+        ├── role/          // Role + Permission (owned entity, business-key equals), Operation, RoleDto, PermissionDto,
         │                  //   RoleMapper, RoleRepository, RoleService, RoleController (/api/v1/roles),
         │                  //   RoleSecuredEntity
         ├── assignment/    // RoleAssignment, RoleAssignmentDto, RoleAssignmentMapper, RoleAssignmentRepository,

@@ -134,9 +134,8 @@ public class RoleService {
 
     /**
      * Makes the role's permissions exactly the given list; duplicates in the
-     * request collapse to one. This is the only way to change them — a grant is
-     * a value, so "add one" and "remove one" are just this call with a longer or
-     * shorter list.
+     * request collapse to one. This is the only way to change them — "add one"
+     * and "remove one" are just this call with a longer or shorter list.
      */
     public List<PermissionDto> replacePermissions(Long roleId, List<PermissionDto> permissions) {
         Role role = loadEditable(roleId);
@@ -174,18 +173,16 @@ public class RoleService {
     }
 
     /**
-     * Makes {@code role.permissions} exactly the requested set. Permissions are
-     * values, so this is a straight replacement: Hibernate rewrites the
-     * collection table, and equal grants collapse in the set rather than
-     * colliding on the unique constraint.
+     * Makes {@code role.permissions} exactly the requested set. Duplicates in
+     * the request collapse here; {@link Role#replacePermissions} then keeps the
+     * rows of surviving grants rather than re-inserting them.
      */
     private void reconcilePermissions(Role role, List<PermissionDto> requested) {
         Set<Permission> desired = requested.stream()
             .map(this::validated)
             .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        role.getPermissions().clear();
-        role.getPermissions().addAll(desired);
+        role.replacePermissions(desired);
     }
 
     /**

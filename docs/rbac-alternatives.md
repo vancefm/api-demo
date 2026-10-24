@@ -30,13 +30,13 @@ Spring Security 7.1 is already on the classpath and offers more than this codeba
 | Capability | Stock mechanism | Used here? |
 |---|---|---|
 | Roles/permissions from a database | `UserDetailsService` + `GrantedAuthority` | No — grants are resolved per request instead |
-| Object-level check hook | `PermissionEvaluator` + `hasPermission()` SpEL | **Yes, now** — see `RbacPermissionEvaluator` |
+| Object-level check hook | `PermissionEvaluator` + `hasPermission()` SpEL | **Yes** — see `RbacPermissionEvaluator` |
 | Field-level read masking | `@AuthorizeReturnObject` + `@HandleAuthorizationDenied` + `NullReturningMethodAuthorizationDeniedHandler` | No — `FieldAccessFilter` does it directly |
 | Collection filtering | `@PostFilter` | No, deliberately |
 
 **What it genuinely provides.** Loading permissions from the database into the `Authentication` is
 free. So is an object-level hook: `PermissionEvaluator` is the designed extension point, and an
-adapter over `AccessControl` now implements it, so `hasPermission(#dto, 'UPDATE')` works in SpEL for
+adapter over `AccessControl` implements it, so `hasPermission(#dto, 'UPDATE')` works in SpEL for
 anyone who prefers annotations.
 
 Most notably, since 6.3 Spring Security **does** offer field-level read masking. `@AuthorizeReturnObject`
@@ -78,7 +78,7 @@ object, where the requirement is "everyone with this role in this department".
 | **OpenFGA / SpiceDB / Permify** | Zanzibar-style relationship engines, excellent at hierarchy and scope | External service to run and keep consistent. No field-level concept. Wrong weight class for this application |
 | **Keycloak Authorization Services** | Full resource/scope/policy server with an admin UI | Moves policy out of the database we deliberately keep it in, and adds a server to operate |
 | **Open Policy Agent** | Policy as code, very expressive | Policy stops being data managed through our API, which is the core requirement |
-| **Apache Shiro** | Its `WildcardPermission` string `entity:operation:field` is the same model invented here | Adopting Shiro alongside Spring Security is a step backwards. The *idea* was borrowed instead: permissions are values, not entities |
+| **Apache Shiro** | Its `WildcardPermission` string `entity:operation:field` is the same model invented here | Adopting Shiro alongside Spring Security is a step backwards. The *idea* is borrowed instead: a grant is identified by its `entity:field:operation` triple, stored as three columns rather than a parsed string |
 
 ## Verdict
 
@@ -86,21 +86,17 @@ Nothing off the shelf removes the field-level and scope-filtering machinery, whi
 complexity actually lives. The role and permission CRUD that makes up most of the line count is
 ordinary domain code that every option would still require.
 
-So the architecture stays, and the volume was cut instead:
+So the layer is hand-written, and kept as small as the requirements allow:
 
-- **Permissions became values rather than entities.** A permission has no identity of its own, so
-  the id, the audit columns and the separate unique constraint were removed. `Role` holds them in an
-  `@ElementCollection` written to the `role_permissions` collection table. Replacing a role's
-  permissions is now a clear-and-add rather than a hand-written diff, which existed only to avoid
-  tripping the unique constraint on re-submit.
-- **One route to edit permissions.** `PUT /api/v1/roles/{id}/permissions` replaces the whole set;
-  the add-one and remove-one routes it subsumed are gone.
-- **A `PermissionEvaluator` was registered**, so the design reads as Spring-native and annotation
-  style checks are available where they fit.
-
-Along the way the unused `ErrorResponse` class, dead since the RFC 9457 migration, was deleted, and a
-pre-existing bug was fixed: the catch-all exception handler turned Spring's own MVC exceptions into
-500s with a critical-alert email, so a wrong HTTP method returned 500 instead of 405.
+- **A permission is identified by what it grants.** `Permission` is an entity in `role_permissions`
+  with its own id, but equality is the entity/field/operation triple. Duplicate grants therefore
+  collapse in the role's `Set`, and replacing a role's permissions keeps the rows of grants that
+  survive. No hand-written diff is needed. See the data model in [rbac.md](rbac.md).
+- **One route to edit permissions.** `PUT /api/v1/roles/{id}/permissions` replaces the whole set; a
+  longer list adds a grant and a shorter one removes it. There are no add-one or remove-one routes.
+- **A `PermissionEvaluator` is registered**, so annotation-style checks are available where they
+  fit. The services still call `AccessControl` directly, because an annotation cannot express the
+  field diff, the union of current and requested scope, or response masking.
 
 ## Also considered, and rejected
 
@@ -113,8 +109,8 @@ pre-existing bug was fixed: the catch-all exception handler turned Spring's own 
 - **Centralising masking in a `ResponseBodyAdvice`** would remove about a dozen `filterReadable`
   call sites, but makes enforcement invisible in the service, against the design's stated invariant
   that every check is visible where the object is known.
-- **A single opaque permission string** (`"User:firstName:READ"`, Shiro style) saves more code than
-  the embeddable, at the cost of an unreadable schema and parsing at every use.
+- **A single opaque permission string** (`"User:firstName:READ"`, Shiro style) saves a little code
+  over three columns, at the cost of an unreadable schema and parsing at every use.
 - **Dropping field-level permissions** would shrink this system dramatically and land it close to
   stock Spring Security. It is a firm requirement, so the cost is accepted deliberately.
 
